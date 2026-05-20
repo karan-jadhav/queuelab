@@ -16,7 +16,7 @@ from queuelab.reporting.summarize import (
     summary_to_markdown,
 )
 from queuelab.workers.direct import run_direct
-from queuelab.workers.queued import run_rabbitmq, run_sqs
+from queuelab.workers.queued import run_postgres_queue, run_rabbitmq, run_sqs
 
 
 app = typer.Typer(
@@ -120,6 +120,7 @@ def run(
     batch_size: Annotated[int, typer.Option(help="Queue receive batch size.")] = 10,
     prefetch_count: Annotated[int, typer.Option(help="RabbitMQ prefetch count.")] = 10,
     sqs_wait_seconds: Annotated[int, typer.Option(help="SQS long polling wait time.")] = 1,
+    pg_max_attempts: Annotated[int, typer.Option(help="Postgres queue max attempts.")] = 3,
     metrics_port: Annotated[
         int | None,
         typer.Option(help="Expose Prometheus metrics on this port."),
@@ -176,6 +177,23 @@ def run(
         typer.echo(f"processed_jobs: {sqs_result.processed_jobs}")
         typer.echo(f"duplicate_jobs: {sqs_result.duplicate_jobs}")
         typer.echo(f"failed_jobs: {sqs_result.failed_jobs}")
+        return
+
+    if backend == "postgres":
+        postgres_result = run_postgres_queue(
+            dataset=dataset,
+            run_id=run_id,
+            experiment_id=experiment_id,
+            batch_size=batch_size,
+            workers=workers,
+            max_attempts=pg_max_attempts,
+        )
+        typer.echo(f"run_id: {postgres_result.run_id}")
+        typer.echo(f"backend: {postgres_result.backend}")
+        typer.echo(f"total_attempts: {postgres_result.total_attempts}")
+        typer.echo(f"processed_jobs: {postgres_result.processed_jobs}")
+        typer.echo(f"duplicate_jobs: {postgres_result.duplicate_jobs}")
+        typer.echo(f"failed_jobs: {postgres_result.failed_jobs}")
         return
 
     typer.echo(f"backend {backend!r} is not implemented yet")

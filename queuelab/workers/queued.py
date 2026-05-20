@@ -11,6 +11,7 @@ from typing import Any
 from queuelab import metrics
 from queuelab.db import ExperimentRepository, ExperimentRun, connect
 from queuelab.queues.base import QueueBackend, ReceivedJob
+from queuelab.queues.postgres_queue import PostgresQueueBackend
 from queuelab.queues.rabbitmq import RabbitMQBackend
 from queuelab.queues.sqs import SQSBackend
 from queuelab.workers.direct import _count_lines, _iter_jobs
@@ -74,6 +75,30 @@ def run_sqs(
         batch_size=batch_size,
         workers=workers,
         queue_config={"wait_time_seconds": wait_time_seconds},
+    )
+
+
+def run_postgres_queue(
+    *,
+    dataset: Path,
+    run_id: str,
+    experiment_id: str = "dev_postgres_queue",
+    batch_size: int = 10,
+    workers: int = 1,
+    max_attempts: int = 3,
+) -> QueuedRunResult:
+    return run_queued(
+        backend_name="postgres",
+        queue_factory=lambda: PostgresQueueBackend(
+            run_id=run_id,
+            max_attempts=max_attempts,
+        ),
+        dataset=dataset,
+        run_id=run_id,
+        experiment_id=experiment_id,
+        batch_size=batch_size,
+        workers=workers,
+        queue_config={"max_attempts": max_attempts},
     )
 
 
