@@ -29,3 +29,42 @@ Current notes:
 - Metadata is written next to the JSONL file as `<dataset>.metadata.json`.
 - Generated datasets stay out of Git under `data/`.
 - Queue backends and processing runs are not implemented yet.
+
+## Direct Backend Smoke Check
+
+Goal: confirm the project can process a normalized dataset directly into Postgres before adding queue backends.
+
+Local proof command used a one-job dataset generated under `/tmp`:
+
+```bash
+uv run python -m queuelab run \
+  --backend direct \
+  --dataset /tmp/queuelab-out/jobs_1.jsonl \
+  --run-id dev-direct-2
+```
+
+Summary command:
+
+```bash
+uv run python -m queuelab report summarize --run-id dev-direct-2
+```
+
+Observed summary:
+
+| metric | value |
+|---|---:|
+| run_id | dev-direct-2 |
+| backend | direct |
+| dataset | jobs_1.jsonl |
+| unique_processed_jobs | 1 |
+| total_attempts | 1 |
+| duplicate_attempts | 0 |
+| failed_attempts | 0 |
+| duration_seconds | 0.004 |
+| jobs_per_second | 240.85 |
+
+Current notes:
+
+- This is a wiring check only, not a benchmark.
+- The direct backend writes `experiment_runs`, `job_attempts`, and `processed_jobs`.
+- Queue ack/delete behavior is intentionally not present yet.
