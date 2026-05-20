@@ -68,3 +68,59 @@ Current notes:
 - This is a wiring check only, not an experiment result or benchmark.
 - The direct backend writes `experiment_runs`, `job_attempts`, and `processed_jobs`.
 - Queue ack/delete behavior is intentionally not present yet.
+
+## Direct Backend Duplicate Smoke Check
+
+Goal: confirm direct processing records every attempt while the idempotency table only accepts the first copy of a duplicated job.
+
+Temporary dataset:
+
+- path: `/tmp/queuelab-smoke/jobs_dup.jsonl`
+- rows: 3
+- unique job IDs: 2
+- duplicate job IDs: 1
+- metadata SHA256: `444d0f73102071b3b2623017c970de49f42f4c7357f3c27fc37038bc5a2afb45`
+
+Run command:
+
+```bash
+uv run python -m queuelab run \
+  --backend direct \
+  --dataset /tmp/queuelab-smoke/jobs_dup.jsonl \
+  --run-id smoke-direct-duplicates-001
+```
+
+Runner output:
+
+```text
+run_id: smoke-direct-duplicates-001
+total_attempts: 3
+processed_jobs: 2
+duplicate_jobs: 1
+```
+
+Summary command:
+
+```bash
+uv run python -m queuelab report summarize --run-id smoke-direct-duplicates-001
+```
+
+Observed smoke-check summary:
+
+| metric | value |
+|---|---:|
+| run_id | smoke-direct-duplicates-001 |
+| backend | direct |
+| dataset | jobs_dup.jsonl |
+| unique_processed_jobs | 2 |
+| total_attempts | 3 |
+| duplicate_attempts | 1 |
+| failed_attempts | 0 |
+| duration_seconds | 0.007 |
+| jobs_per_second | 269.94 |
+
+Current notes:
+
+- This is a correctness smoke check only.
+- It verifies the intended split between attempts and idempotent side effects.
+- A summary aggregation bug was found here and fixed before this entry was recorded.
