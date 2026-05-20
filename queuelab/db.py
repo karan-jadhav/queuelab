@@ -108,3 +108,80 @@ class ExperimentRepository:
                 (run_id, job_id, worker_id, result_hash),
             )
             return cursor.fetchone() is not None
+
+    def record_attempt(
+        self,
+        *,
+        run_id: str,
+        job_id: str,
+        backend: str,
+        worker_id: str,
+        attempt_no: int,
+        status: str,
+        processing_ms: int,
+        db_write_ms: int,
+        message_meta: dict[str, Any] | None = None,
+        error_type: str | None = None,
+        error_message: str | None = None,
+    ) -> None:
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO job_attempts (
+                  run_id,
+                  job_id,
+                  backend,
+                  worker_id,
+                  attempt_no,
+                  started_at,
+                  finished_at,
+                  acked_at,
+                  status,
+                  error_type,
+                  error_message,
+                  processing_ms,
+                  db_write_ms,
+                  message_meta
+                )
+                VALUES (
+                  %s,
+                  %s,
+                  %s,
+                  %s,
+                  %s,
+                  now(),
+                  now(),
+                  now(),
+                  %s,
+                  %s,
+                  %s,
+                  %s,
+                  %s,
+                  %s
+                )
+                """,
+                (
+                    run_id,
+                    job_id,
+                    backend,
+                    worker_id,
+                    attempt_no,
+                    status,
+                    error_type,
+                    error_message,
+                    processing_ms,
+                    db_write_ms,
+                    Jsonb(message_meta or {}),
+                ),
+            )
+
+    def finish_run(self, run_id: str) -> None:
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE experiment_runs
+                SET finished_at = now()
+                WHERE run_id = %s
+                """,
+                (run_id,),
+            )

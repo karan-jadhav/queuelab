@@ -9,6 +9,7 @@ import typer
 from queuelab import __version__
 from queuelab.dataset.download_gharchive import DEFAULT_BASE_URL, download_jobs
 from queuelab.dataset.inspect import inspect_dataset
+from queuelab.workers.direct import run_direct
 
 
 app = typer.Typer(
@@ -87,8 +88,27 @@ def dataset_inspect(
 @app.command("run")
 def run(
     backend: Annotated[str, typer.Option(help="Backend to run.")] = "direct",
+    dataset: Annotated[Path | None, typer.Option(help="Normalized JSONL dataset.")] = None,
+    run_id: Annotated[str | None, typer.Option(help="Unique run identifier.")] = None,
+    experiment_id: Annotated[str, typer.Option(help="Experiment identifier.")] = "dev_direct",
 ) -> None:
-    typer.echo(f"backend {backend!r} is not implemented yet")
+    if backend != "direct":
+        typer.echo(f"backend {backend!r} is not implemented yet")
+        raise typer.Exit(code=1)
+    if dataset is None:
+        raise typer.BadParameter("--dataset is required for direct runs")
+    if run_id is None:
+        raise typer.BadParameter("--run-id is required for direct runs")
+
+    result = run_direct(
+        dataset=dataset,
+        run_id=run_id,
+        experiment_id=experiment_id,
+    )
+    typer.echo(f"run_id: {result.run_id}")
+    typer.echo(f"total_attempts: {result.total_attempts}")
+    typer.echo(f"processed_jobs: {result.processed_jobs}")
+    typer.echo(f"duplicate_jobs: {result.duplicate_jobs}")
 
 
 def main() -> None:
