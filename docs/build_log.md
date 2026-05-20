@@ -124,3 +124,62 @@ Current notes:
 - This is a correctness smoke check only.
 - It verifies the intended split between attempts and idempotent side effects.
 - A summary aggregation bug was found here and fixed before this entry was recorded.
+
+## RabbitMQ Duplicate Smoke Check
+
+Goal: confirm the RabbitMQ backend can publish normalized jobs, consume them with manual ack, and preserve the same idempotency behavior as the direct backend.
+
+Temporary dataset:
+
+- path: `/tmp/queuelab-smoke/jobs_dup.jsonl`
+- rows: 3
+- unique job IDs: 2
+- duplicate job IDs: 1
+
+Run command:
+
+```bash
+uv run python -m queuelab run \
+  --backend rabbitmq \
+  --dataset /tmp/queuelab-smoke/jobs_dup.jsonl \
+  --run-id smoke-rabbitmq-duplicates-001 \
+  --batch-size 2 \
+  --prefetch-count 2
+```
+
+Runner output:
+
+```text
+run_id: smoke-rabbitmq-duplicates-001
+backend: rabbitmq
+total_attempts: 3
+processed_jobs: 2
+duplicate_jobs: 1
+failed_jobs: 0
+```
+
+Summary command:
+
+```bash
+uv run python -m queuelab report summarize --run-id smoke-rabbitmq-duplicates-001
+```
+
+Observed smoke-check summary:
+
+| metric | value |
+|---|---:|
+| run_id | smoke-rabbitmq-duplicates-001 |
+| backend | rabbitmq |
+| dataset | jobs_dup.jsonl |
+| unique_processed_jobs | 2 |
+| total_attempts | 3 |
+| duplicate_attempts | 1 |
+| failed_attempts | 0 |
+| duration_seconds | 0.019 |
+| jobs_per_second | 106.13 |
+
+Current notes:
+
+- This is a broker wiring check only, not an experiment result.
+- RabbitMQ publish uses persistent messages.
+- RabbitMQ consume uses manual ack after the database commit.
