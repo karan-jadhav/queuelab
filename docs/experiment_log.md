@@ -313,3 +313,90 @@ Notes:
 
 - This validates delay injection and accounting only.
 - Larger DB-delay sweeps should use queued backends and compare visibility/lease behavior.
+
+## v0.2 RabbitMQ Prefetch Sweep
+
+Dataset: `data/jobs_10k.jsonl`, 10,000 jobs.
+
+| run_id | prefetch | processed | failed | jobs_per_second | db_write_ms_p95 | max_ready_depth |
+|---|---:|---:|---:|---:|---:|---:|
+| v02-rabbitmq-prefetch-1 | 1 | 10000 | 0 | 479.41 | 4.0 | 10000 |
+| v02-rabbitmq-prefetch-10 | 10 | 10000 | 0 | 611.22 | 3.0 | 10000 |
+| v02-rabbitmq-prefetch-50 | 50 | 10000 | 0 | 573.39 | 4.0 | 10000 |
+
+Notes:
+
+- Prefetch `10` was fastest in this local sweep.
+- The sweep uses summary-level metrics and should be repeated before broad claims.
+
+## v0.2 Postgres Queue Concurrency Sweep
+
+Dataset: `data/jobs_10k.jsonl`, 10,000 jobs.
+
+| run_id | workers | processed | failed | jobs_per_second | db_write_ms_p95 |
+|---|---:|---:|---:|---:|---:|
+| v02-postgres-workers-1 | 1 | 10000 | 0 | 193.31 | 1.0 |
+| v02-postgres-workers-4 | 4 | 10000 | 0 | 382.06 | 4.0 |
+| v02-postgres-workers-8 | 8 | 10000 | 0 | 306.24 | 9.0 |
+| v02-postgres-workers-16 | 16 | 10000 | 0 | 260.95 | 24.0 |
+
+Notes:
+
+- Throughput peaked at 4 workers in this local run.
+- Higher worker counts increased p95 DB write latency.
+
+## v0.2 SQS Visibility Timeout With Slow DB
+
+Dataset: `/tmp/queuelab-smoke/jobs_100.jsonl`, 100 jobs, SHA256 `240c44397b81fcb10c7d8fa9427c37e67df80f485170ef9322a1d5e805d9570f`.
+
+| run_id | visibility_timeout_seconds | db_delay_ms | processed | duplicate_attempts | failed | jobs_per_second | db_write_ms_p95 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| v02-sqs-visibility-5-db250 | 5 | 250 | 100 | 0 | 0 | 12.45 | 256.0 |
+| v02-sqs-visibility-30-db250 | 30 | 250 | 100 | 0 | 0 | 12.34 | 254.1 |
+
+Notes:
+
+- Neither visibility timeout produced duplicates at this size and delay.
+- This is a controlled local comparison against LocalStack, not AWS SQS.
+
+## v0.2 DB Delay Sweep
+
+Dataset: `/tmp/queuelab-smoke/jobs_100.jsonl`, 100 jobs.
+
+| backend | db_delay_ms | processed | failed | jobs_per_second | db_write_ms_p95 |
+|---|---:|---:|---:|---:|---:|
+| rabbitmq | 0 | 100 | 0 | 385.48 | 2.0 |
+| rabbitmq | 25 | 100 | 0 | 96.39 | 29.0 |
+| rabbitmq | 100 | 100 | 0 | 29.94 | 104.0 |
+| sqs | 0 | 100 | 0 | 230.29 | 4.0 |
+| sqs | 25 | 100 | 0 | 77.74 | 32.0 |
+| sqs | 100 | 100 | 0 | 28.43 | 104.1 |
+| postgres | 0 | 100 | 0 | 370.00 | 2.0 |
+| postgres | 25 | 100 | 0 | 88.75 | 31.0 |
+| postgres | 100 | 100 | 0 | 29.10 | 107.0 |
+
+Notes:
+
+- The injected delay dominates throughput once it reaches 100 ms.
+- The p95 DB write latency tracks the configured delay as expected.
+
+## v0.2 Retry Storm Smoke
+
+Dataset: `/tmp/queuelab-smoke/jobs_1k.jsonl`, 1,000 jobs, SHA256 `df888bc575dc541c96add108185265d129767aeb430d904bc6a68aeea296321e`.
+
+Chaos config:
+
+- deterministic transient failure rate: 0.05
+- transient failures stop on attempt 3
+
+| backend | run_id | processed | total_attempts | failed_attempts | attempt_amplification | jobs_per_second |
+|---|---|---:|---:|---:|---:|---:|
+| rabbitmq | v02-retry-rabbitmq-rate005 | 1000 | 1108 | 108 | 1.108 | 509.82 |
+| sqs | v02-retry-sqs-rate005 | 1000 | 1108 | 108 | 1.108 | 117.61 |
+| postgres | v02-retry-postgres-rate005 | 1000 | 1108 | 108 | 1.108 | 538.83 |
+
+Notes:
+
+- All backends processed all 1,000 unique jobs.
+- The retry storm produced 108 failed attempts before success, matching the deterministic selected subset over two failed attempts each.
+- RabbitMQ retry republishes with an internal attempt header; SQS uses visibility timeout; Postgres queue increments row attempts.

@@ -22,6 +22,9 @@ QueueLab now has a reproducible local path for:
 - exporting summary JSON
 - generating simple SVG charts
 - running controlled crash, poison, and DB slowdown smoke checks
+- running YAML experiment configs and sweeps
+- injecting transient failures for retry-storm experiments
+- exporting latency percentiles and queue-depth summaries
 
 ## Quick Start
 
@@ -71,6 +74,8 @@ uv run python -m queuelab run --backend postgres ...
 uv run python -m queuelab report summarize --run-id ...
 uv run python -m queuelab report export --run-id ... --out-dir results/summaries
 uv run python -m queuelab report charts --summary-dir results/summaries --out-dir docs/charts
+uv run python -m queuelab experiment plan experiments/configs/exp_007_rabbitmq_prefetch.yaml
+uv run python -m queuelab experiment run experiments/configs/exp_007_rabbitmq_prefetch.yaml
 ```
 
 ## First Local Results
@@ -103,6 +108,33 @@ Poison message handling with 9 normal jobs and 1 poison job:
 | SQS | 10 | 9 | 1 | 1 |
 | Postgres queue | 10 | 9 | 1 | 1 |
 
+## v0.2 Sweeps
+
+RabbitMQ prefetch sweep on 10K jobs:
+
+| prefetch | jobs/s |
+|---:|---:|
+| 1 | 479.41 |
+| 10 | 611.22 |
+| 50 | 573.39 |
+
+Postgres queue concurrency sweep on 10K jobs:
+
+| workers | jobs/s |
+|---:|---:|
+| 1 | 193.31 |
+| 4 | 382.06 |
+| 8 | 306.24 |
+| 16 | 260.95 |
+
+Retry storm smoke on 1K jobs:
+
+| backend | attempts | failed attempts | amplification |
+|---|---:|---:|---:|
+| RabbitMQ | 1108 | 108 | 1.108 |
+| SQS | 1108 | 108 | 1.108 |
+| Postgres queue | 1108 | 108 | 1.108 |
+
 ## Docs
 
 - [Architecture](docs/architecture.md)
@@ -115,6 +147,5 @@ Poison message handling with 9 normal jobs and 1 poison job:
 ## Limitations
 
 - SQS runs use LocalStack, not AWS SQS.
-- Retry storm behavior is planned but not implemented yet.
-- Charts currently use summary-level metrics only.
+- Charts currently use summary-level metrics, not full time-series traces.
 - Raw datasets stay out of Git; committed artifacts are summaries, configs, charts, and docs.
