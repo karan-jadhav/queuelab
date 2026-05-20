@@ -8,6 +8,7 @@ import typer
 
 from queuelab import __version__
 from queuelab.dataset.download_gharchive import DEFAULT_BASE_URL, download_jobs
+from queuelab.dataset.inspect import inspect_dataset
 
 
 app = typer.Typer(
@@ -58,14 +59,29 @@ def dataset_download(
     except ValueError as exc:
         raise typer.BadParameter("expected YYYY-MM-DD") from exc
 
-    count = download_jobs(
+    result = download_jobs(
         start_date=parsed_start_date,
         hours=hours,
         limit=limit,
         out=out,
         base_url=base_url,
     )
-    typer.echo(f"wrote {count} jobs to {out}")
+    typer.echo(f"wrote {result.count} jobs to {result.output_path}")
+    typer.echo(f"metadata: {result.metadata_path}")
+
+
+@dataset_app.command("inspect")
+def dataset_inspect(
+    path: Annotated[Path, typer.Argument(help="Dataset JSONL path to inspect.")],
+) -> None:
+    summary = inspect_dataset(path)
+    typer.echo(f"path: {summary['path']}")
+    typer.echo(f"count: {summary['count']}")
+    typer.echo(f"metadata_count: {summary['metadata_count']}")
+    typer.echo(f"sha256: {summary['sha256']}")
+    typer.echo(f"source_files: {', '.join(summary['source_files'])}")
+    typer.echo(f"event_types: {', '.join(summary['event_types'])}")
+    typer.echo(f"first_job_id: {summary['first_job_id']}")
 
 
 @app.command("run")
