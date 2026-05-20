@@ -20,6 +20,16 @@ services:
     volumes:
       - ./infra/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
 
+  localstack:
+    image: localstack/localstack:4.9.2
+    ports:
+      - "4566:4566"
+    environment:
+      SERVICES: sqs
+      AWS_DEFAULT_REGION: us-east-1
+    volumes:
+      - ./infra/localstack/init-sqs.sh:/etc/localstack/init/ready.d/init-sqs.sh:ro
+
   prometheus:
     image: prom/prometheus:v3.9.1
     ports:
