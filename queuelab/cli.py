@@ -10,6 +10,8 @@ from queuelab import __version__
 from queuelab.dataset.download_gharchive import DEFAULT_BASE_URL, download_jobs
 from queuelab.dataset.inspect import inspect_dataset
 from queuelab.metrics import start_metrics_server
+from queuelab.reporting.charts import generate_charts
+from queuelab.reporting.export import export_summaries
 from queuelab.reporting.summarize import (
     summarize_run,
     summary_to_json,
@@ -108,6 +110,26 @@ def report_summarize(
         typer.echo(summary_to_markdown(summary))
         return
     raise typer.BadParameter("format must be json or markdown")
+
+
+@report_app.command("export")
+def report_export(
+    run_ids: Annotated[list[str], typer.Option("--run-id", help="Run ID to export.")],
+    out_dir: Annotated[Path, typer.Option(help="Directory for JSON summaries.")],
+) -> None:
+    written = export_summaries(run_ids, out_dir)
+    for path in written:
+        typer.echo(f"wrote {path}")
+
+
+@report_app.command("charts")
+def report_charts(
+    summary_dir: Annotated[Path, typer.Option(help="Directory containing JSON summaries.")],
+    out_dir: Annotated[Path, typer.Option(help="Directory for generated SVG charts.")],
+) -> None:
+    written = generate_charts(summary_dir, out_dir)
+    for path in written:
+        typer.echo(f"wrote {path}")
 
 
 @app.command("run")
