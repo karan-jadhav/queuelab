@@ -334,3 +334,40 @@ Current notes:
 - This is an infra wiring check only, not an experiment result.
 - Prometheus scrapes `host.docker.internal:8001`, matching `--metrics-port 8001`.
 - Grafana provisions the Prometheus datasource and `QueueLab Reliability Dashboard`.
+
+## LocalStack SQS Infra Smoke Check
+
+Goal: confirm the local SQS emulator can start and create the main queue plus DLQ.
+
+Image choice:
+
+- Tried `localstack/localstack:2026.04.0`; it requires `LOCALSTACK_AUTH_TOKEN` and exits without credentials.
+- Pinned `localstack/localstack:4.9.2` so the public repo remains runnable without a LocalStack account.
+
+Config checks:
+
+```bash
+docker compose config
+bash -n infra/localstack/init-sqs.sh
+```
+
+Service check:
+
+```bash
+docker compose up -d --force-recreate localstack
+docker compose logs --tail=80 localstack
+docker compose exec -T localstack awslocal sqs list-queues --region us-east-1
+```
+
+Observed queues:
+
+```text
+http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/queuelab-dlq
+http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/queuelab-main
+```
+
+Current notes:
+
+- This is SQS infra verification only, not a worker run.
+- The main queue uses a DLQ redrive policy with `maxReceiveCount` defaulting to 3.
+- The default visibility timeout is 30 seconds.
