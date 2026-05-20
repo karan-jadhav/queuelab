@@ -115,6 +115,7 @@ def run(
     dataset: Annotated[Path | None, typer.Option(help="Normalized JSONL dataset.")] = None,
     run_id: Annotated[str | None, typer.Option(help="Unique run identifier.")] = None,
     experiment_id: Annotated[str, typer.Option(help="Experiment identifier.")] = "dev_direct",
+    workers: Annotated[int, typer.Option(help="Number of workers to run.")] = 1,
     batch_size: Annotated[int, typer.Option(help="Queue receive batch size.")] = 10,
     prefetch_count: Annotated[int, typer.Option(help="RabbitMQ prefetch count.")] = 10,
 ) -> None:
@@ -142,6 +143,7 @@ def run(
             experiment_id=experiment_id,
             batch_size=batch_size,
             prefetch_count=prefetch_count,
+            workers=workers,
         )
         typer.echo(f"run_id: {rabbitmq_result.run_id}")
         typer.echo(f"backend: {rabbitmq_result.backend}")

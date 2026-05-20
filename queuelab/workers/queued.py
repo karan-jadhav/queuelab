@@ -5,6 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 from time import perf_counter, sleep
+from threading import Lock, Thread
 from typing import Any
 
 from queuelab.db import ExperimentRepository, ExperimentRun, connect
@@ -23,6 +24,15 @@ class QueuedRunResult:
     failed_jobs: int
 
 
+@dataclass
+class _RunCounters:
+    total_attempts: int = 0
+    reserved_attempts: int = 0
+    processed_jobs: int = 0
+    duplicate_jobs: int = 0
+    failed_jobs: int = 0
+
+
 def run_rabbitmq(
     *,
     dataset: Path,
@@ -30,17 +40,16 @@ def run_rabbitmq(
     experiment_id: str = "dev_rabbitmq",
     batch_size: int = 10,
     prefetch_count: int = 10,
-    worker_id: str = "rabbitmq-1",
+    workers: int = 1,
 ) -> QueuedRunResult:
-    backend = RabbitMQBackend(prefetch_count=prefetch_count)
     return run_queued(
         backend_name="rabbitmq",
-        queue=backend,
+        queue_factory=lambda: RabbitMQBackend(prefetch_count=prefetch_count),
         dataset=dataset,
         run_id=run_id,
         experiment_id=experiment_id,
         batch_size=batch_size,
-        worker_id=worker_id,
+        workers=workers,
         queue_config={"prefetch_count": prefetch_count},
     )
 
@@ -48,47 +57,120 @@ def run_rabbitmq(
 def run_queued(
     *,
     backend_name: str,
-    queue: QueueBackend,
+    queue_factory: Any,
     dataset: Path,
     run_id: str,
     experiment_id: str,
     batch_size: int,
-    worker_id: str,
+    workers: int,
     queue_config: dict[str, Any] | None = None,
 ) -> QueuedRunResult:
-    job_count = _count_lines(dataset)
-    total_attempts = 0
-    processed_jobs = 0
-    duplicate_jobs = 0
-    failed_jobs = 0
+    if workers < 1:
+        raise ValueError("workers must be at least 1")
 
+    job_count = _count_lines(dataset)
+    counters = _RunCounters()
+    lock = Lock()
+
+    queue = queue_factory()
     try:
         queue.setup()
         queue.publish_batch(list(_iter_jobs(dataset)))
+    finally:
+        queue.close()
 
+    with connect() as connection:
+        repository = ExperimentRepository(connection)
+        repository.create_run(
+            ExperimentRun(
+                run_id=run_id,
+                experiment_id=experiment_id,
+                backend=backend_name,
+                dataset_name=dataset.name,
+                job_count_target=job_count,
+                worker_count=workers,
+                batch_size=batch_size,
+                queue_config=queue_config or {},
+            )
+        )
+        connection.commit()
+
+    threads = [
+        Thread(
+            target=_run_worker,
+            kwargs={
+                "backend_name": backend_name,
+                "queue_factory": queue_factory,
+                "run_id": run_id,
+                "worker_id": f"{backend_name}-{worker_index + 1}",
+                "batch_size": batch_size,
+                "job_count": job_count,
+                "counters": counters,
+                "lock": lock,
+            },
+        )
+        for worker_index in range(workers)
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    with connect() as connection:
+        repository = ExperimentRepository(connection)
+        repository.finish_run(run_id)
+        connection.commit()
+
+    return QueuedRunResult(
+        run_id=run_id,
+        backend=backend_name,
+        total_attempts=counters.total_attempts,
+        processed_jobs=counters.processed_jobs,
+        duplicate_jobs=counters.duplicate_jobs,
+        failed_jobs=counters.failed_jobs,
+    )
+
+
+def _run_worker(
+    *,
+    backend_name: str,
+    queue_factory: Any,
+    run_id: str,
+    worker_id: str,
+    batch_size: int,
+    job_count: int,
+    counters: _RunCounters,
+    lock: Lock,
+) -> None:
+    queue = queue_factory()
+    try:
+        queue.setup()
         with connect() as connection:
             repository = ExperimentRepository(connection)
-            repository.create_run(
-                ExperimentRun(
-                    run_id=run_id,
-                    experiment_id=experiment_id,
-                    backend=backend_name,
-                    dataset_name=dataset.name,
-                    job_count_target=job_count,
-                    worker_count=1,
-                    batch_size=batch_size,
-                    queue_config=queue_config or {},
-                )
-            )
+            while True:
+                with lock:
+                    remaining = job_count - counters.total_attempts - counters.reserved_attempts
+                    if remaining <= 0:
+                        return
+                    receive_limit = min(batch_size, remaining)
+                    counters.reserved_attempts += receive_limit
 
-            while total_attempts < job_count:
-                received_jobs = queue.receive(batch_size)
+                received_jobs = queue.receive(receive_limit)
                 if not received_jobs:
+                    with lock:
+                        counters.reserved_attempts -= receive_limit
                     sleep(0.1)
                     continue
 
+                if len(received_jobs) < receive_limit:
+                    with lock:
+                        counters.reserved_attempts -= receive_limit - len(received_jobs)
+
                 for received_job in received_jobs:
-                    total_attempts += 1
+                    with lock:
+                        counters.total_attempts += 1
+                        counters.reserved_attempts -= 1
+
                     try:
                         inserted, processing_ms, db_write_ms = _process_received_job(
                             repository=repository,
@@ -97,11 +179,13 @@ def run_queued(
                             worker_id=worker_id,
                         )
                         if inserted:
-                            processed_jobs += 1
                             status = "success"
+                            with lock:
+                                counters.processed_jobs += 1
                         else:
-                            duplicate_jobs += 1
                             status = "duplicate"
+                            with lock:
+                                counters.duplicate_jobs += 1
 
                         repository.record_attempt(
                             run_id=run_id,
@@ -117,7 +201,8 @@ def run_queued(
                         connection.commit()
                         queue.ack(received_job)
                     except Exception as exc:
-                        failed_jobs += 1
+                        with lock:
+                            counters.failed_jobs += 1
                         repository.record_attempt(
                             run_id=run_id,
                             job_id=_best_effort_job_id(received_job),
@@ -133,20 +218,8 @@ def run_queued(
                         )
                         connection.commit()
                         queue.fail(received_job, reason=str(exc))
-
-            repository.finish_run(run_id)
-            connection.commit()
     finally:
         queue.close()
-
-    return QueuedRunResult(
-        run_id=run_id,
-        backend=backend_name,
-        total_attempts=total_attempts,
-        processed_jobs=processed_jobs,
-        duplicate_jobs=duplicate_jobs,
-        failed_jobs=failed_jobs,
-    )
 
 
 def _process_received_job(
