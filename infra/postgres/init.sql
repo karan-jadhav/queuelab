@@ -51,3 +51,32 @@ CREATE TABLE IF NOT EXISTS processed_jobs (
   result_hash TEXT,
   PRIMARY KEY (run_id, job_id)
 );
+
+CREATE TABLE IF NOT EXISTS pg_queue_jobs (
+  id BIGSERIAL PRIMARY KEY,
+  run_id TEXT NOT NULL,
+  job_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'queued',
+  payload JSONB NOT NULL,
+  priority INT NOT NULL DEFAULT 100,
+  attempts INT NOT NULL DEFAULT 0,
+  max_attempts INT NOT NULL DEFAULT 3,
+  run_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  locked_by TEXT,
+  locked_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  finished_at TIMESTAMPTZ,
+  error_message TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_pg_queue_available
+ON pg_queue_jobs (run_id, priority, run_at, id)
+WHERE status = 'queued';
+
+CREATE INDEX IF NOT EXISTS idx_pg_queue_leased
+ON pg_queue_jobs (run_id, locked_at)
+WHERE status = 'leased';
+
+CREATE INDEX IF NOT EXISTS idx_pg_queue_dead
+ON pg_queue_jobs (run_id)
+WHERE status = 'dead';
