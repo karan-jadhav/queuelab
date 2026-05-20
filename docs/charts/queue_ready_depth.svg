@@ -1,43 +1,43 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="2806" height="420" viewBox="0 0 2806 420">
 <rect width="100%" height="100%" fill="#ffffff"/>
-<text x="72" y="36" font-family="sans-serif" font-size="22" font-weight="700">Failure Smoke Attempts</text>
-<text x="72" y="64" font-family="sans-serif" font-size="12" fill="#555">attempts</text>
+<text x="72" y="36" font-family="sans-serif" font-size="22" font-weight="700">Max Ready Queue Depth</text>
+<text x="72" y="64" font-family="sans-serif" font-size="12" fill="#555">messages</text>
 <line x1="72" y1="308" x2="2774" y2="308" stroke="#222"/>
 <line x1="72" y1="82" x2="72" y2="308" stroke="#222"/>
-<rect x="87.6" y="92.0" width="56.0" height="216.0" fill="#2f6f73"/>
-<text x="115.6" y="84.0" text-anchor="middle" font-family="sans-serif" font-size="11">10000.00</text>
+<rect x="87.6" y="308.0" width="56.0" height="0.0" fill="#2f6f73"/>
+<text x="115.6" y="300.0" text-anchor="middle" font-family="sans-serif" font-size="11">0.00</text>
 <text x="115.6" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">postgres</text>
 <text x="115.6" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">pg 001</text>
-<rect x="174.7" y="92.0" width="56.0" height="216.0" fill="#2f6f73"/>
-<text x="202.7" y="84.0" text-anchor="middle" font-family="sans-serif" font-size="11">10000.00</text>
+<rect x="174.7" y="308.0" width="56.0" height="0.0" fill="#2f6f73"/>
+<text x="202.7" y="300.0" text-anchor="middle" font-family="sans-serif" font-size="11">0.00</text>
 <text x="202.7" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">rabbitmq</text>
 <text x="202.7" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">rmq 001</text>
-<rect x="261.9" y="92.0" width="56.0" height="216.0" fill="#2f6f73"/>
-<text x="289.9" y="84.0" text-anchor="middle" font-family="sans-serif" font-size="11">10000.00</text>
+<rect x="261.9" y="308.0" width="56.0" height="0.0" fill="#2f6f73"/>
+<text x="289.9" y="300.0" text-anchor="middle" font-family="sans-serif" font-size="11">0.00</text>
 <text x="289.9" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">sqs</text>
 <text x="289.9" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">sqs-001</text>
-<rect x="349.1" y="307.8" width="56.0" height="0.2" fill="#2f6f73"/>
-<text x="377.1" y="299.8" text-anchor="middle" font-family="sans-serif" font-size="11">11.00</text>
+<rect x="349.1" y="308.0" width="56.0" height="0.0" fill="#2f6f73"/>
+<text x="377.1" y="300.0" text-anchor="middle" font-family="sans-serif" font-size="11">0.00</text>
 <text x="377.1" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">postgres</text>
 <text x="377.1" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">e2 pg crash-unique-001</text>
-<rect x="436.2" y="307.8" width="56.0" height="0.2" fill="#2f6f73"/>
-<text x="464.2" y="299.8" text-anchor="middle" font-family="sans-serif" font-size="11">11.00</text>
+<rect x="436.2" y="308.0" width="56.0" height="0.0" fill="#2f6f73"/>
+<text x="464.2" y="300.0" text-anchor="middle" font-family="sans-serif" font-size="11">0.00</text>
 <text x="464.2" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">rabbitmq</text>
 <text x="464.2" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">e2 rmq crash-unique-001</text>
-<rect x="523.4" y="307.8" width="56.0" height="0.2" fill="#2f6f73"/>
-<text x="551.4" y="299.8" text-anchor="middle" font-family="sans-serif" font-size="11">11.00</text>
+<rect x="523.4" y="308.0" width="56.0" height="0.0" fill="#2f6f73"/>
+<text x="551.4" y="300.0" text-anchor="middle" font-family="sans-serif" font-size="11">0.00</text>
 <text x="551.4" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">sqs</text>
 <text x="551.4" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">e2 sqs-crash-unique-001</text>
-<rect x="610.5" y="307.8" width="56.0" height="0.2" fill="#2f6f73"/>
-<text x="638.5" y="299.8" text-anchor="middle" font-family="sans-serif" font-size="11">10.00</text>
+<rect x="610.5" y="308.0" width="56.0" height="0.0" fill="#2f6f73"/>
+<text x="638.5" y="300.0" text-anchor="middle" font-family="sans-serif" font-size="11">0.00</text>
 <text x="638.5" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">postgres</text>
 <text x="638.5" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">e4 pg poison-001</text>
-<rect x="697.7" y="307.8" width="56.0" height="0.2" fill="#2f6f73"/>
-<text x="725.7" y="299.8" text-anchor="middle" font-family="sans-serif" font-size="11">10.00</text>
+<rect x="697.7" y="308.0" width="56.0" height="0.0" fill="#2f6f73"/>
+<text x="725.7" y="300.0" text-anchor="middle" font-family="sans-serif" font-size="11">0.00</text>
 <text x="725.7" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">rabbitmq</text>
 <text x="725.7" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">e4 rmq poison-001</text>
-<rect x="784.9" y="307.8" width="56.0" height="0.2" fill="#2f6f73"/>
-<text x="812.9" y="299.8" text-anchor="middle" font-family="sans-serif" font-size="11">10.00</text>
+<rect x="784.9" y="308.0" width="56.0" height="0.0" fill="#2f6f73"/>
+<text x="812.9" y="300.0" text-anchor="middle" font-family="sans-serif" font-size="11">0.00</text>
 <text x="812.9" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">sqs</text>
 <text x="812.9" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">e4 sqs-poison-001</text>
 <rect x="872.0" y="305.8" width="56.0" height="2.2" fill="#2f6f73"/>
@@ -56,12 +56,12 @@
 <text x="1161.5" y="297.8" text-anchor="middle" font-family="sans-serif" font-size="11">100.00</text>
 <text x="1161.5" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">rabbitmq</text>
 <text x="1161.5" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">dbdelay-rmq 0</text>
-<rect x="1220.7" y="305.8" width="56.0" height="2.2" fill="#2f6f73"/>
-<text x="1248.7" y="297.8" text-anchor="middle" font-family="sans-serif" font-size="11">100.00</text>
+<rect x="1220.7" y="305.9" width="56.0" height="2.1" fill="#2f6f73"/>
+<text x="1248.7" y="297.9" text-anchor="middle" font-family="sans-serif" font-size="11">95.00</text>
 <text x="1248.7" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">rabbitmq</text>
 <text x="1248.7" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">dbdelay-rmq 100</text>
-<rect x="1307.8" y="305.8" width="56.0" height="2.2" fill="#2f6f73"/>
-<text x="1335.8" y="297.8" text-anchor="middle" font-family="sans-serif" font-size="11">100.00</text>
+<rect x="1307.8" y="305.9" width="56.0" height="2.1" fill="#2f6f73"/>
+<text x="1335.8" y="297.9" text-anchor="middle" font-family="sans-serif" font-size="11">95.00</text>
 <text x="1335.8" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">rabbitmq</text>
 <text x="1335.8" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">dbdelay-rmq 25</text>
 <rect x="1395.0" y="305.8" width="56.0" height="2.2" fill="#2f6f73"/>
@@ -76,16 +76,16 @@
 <text x="1597.3" y="297.8" text-anchor="middle" font-family="sans-serif" font-size="11">100.00</text>
 <text x="1597.3" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">sqs</text>
 <text x="1597.3" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">dbdelay-sqs-25</text>
-<rect x="1656.5" y="307.8" width="56.0" height="0.2" fill="#2f6f73"/>
-<text x="1684.5" y="299.8" text-anchor="middle" font-family="sans-serif" font-size="11">10.00</text>
+<rect x="1656.5" y="308.0" width="56.0" height="0.0" fill="#2f6f73"/>
+<text x="1684.5" y="300.0" text-anchor="middle" font-family="sans-serif" font-size="11">0.00</text>
 <text x="1684.5" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">direct</text>
 <text x="1684.5" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">smoke-direct-db-slowdown-001</text>
-<rect x="1743.6" y="305.8" width="56.0" height="2.2" fill="#2f6f73"/>
-<text x="1771.6" y="297.8" text-anchor="middle" font-family="sans-serif" font-size="11">100.00</text>
+<rect x="1743.6" y="306.7" width="56.0" height="1.3" fill="#2f6f73"/>
+<text x="1771.6" y="298.7" text-anchor="middle" font-family="sans-serif" font-size="11">60.00</text>
 <text x="1771.6" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">sqs</text>
 <text x="1771.6" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">sqs-visibility-30-db250</text>
-<rect x="1830.8" y="305.8" width="56.0" height="2.2" fill="#2f6f73"/>
-<text x="1858.8" y="297.8" text-anchor="middle" font-family="sans-serif" font-size="11">100.00</text>
+<rect x="1830.8" y="306.1" width="56.0" height="1.9" fill="#2f6f73"/>
+<text x="1858.8" y="298.1" text-anchor="middle" font-family="sans-serif" font-size="11">90.00</text>
 <text x="1858.8" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">sqs</text>
 <text x="1858.8" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">sqs-visibility-5-db250</text>
 <rect x="1918.0" y="92.0" width="56.0" height="216.0" fill="#2f6f73"/>
@@ -116,16 +116,16 @@
 <text x="2468.9" y="84.0" text-anchor="middle" font-family="sans-serif" font-size="11">10000.00</text>
 <text x="2468.9" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">postgres</text>
 <text x="2468.9" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">pg workers-8</text>
-<rect x="2528.1" y="284.1" width="56.0" height="23.9" fill="#2f6f73"/>
-<text x="2556.1" y="276.1" text-anchor="middle" font-family="sans-serif" font-size="11">1108.00</text>
+<rect x="2528.1" y="286.4" width="56.0" height="21.6" fill="#2f6f73"/>
+<text x="2556.1" y="278.4" text-anchor="middle" font-family="sans-serif" font-size="11">1000.00</text>
 <text x="2556.1" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">postgres</text>
 <text x="2556.1" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">retry-pg rate005</text>
-<rect x="2615.3" y="284.1" width="56.0" height="23.9" fill="#2f6f73"/>
-<text x="2643.3" y="276.1" text-anchor="middle" font-family="sans-serif" font-size="11">1108.00</text>
+<rect x="2615.3" y="286.4" width="56.0" height="21.6" fill="#2f6f73"/>
+<text x="2643.3" y="278.4" text-anchor="middle" font-family="sans-serif" font-size="11">1000.00</text>
 <text x="2643.3" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">rabbitmq</text>
 <text x="2643.3" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">retry-rmq rate005</text>
-<rect x="2702.4" y="284.1" width="56.0" height="23.9" fill="#2f6f73"/>
-<text x="2730.4" y="276.1" text-anchor="middle" font-family="sans-serif" font-size="11">1108.00</text>
+<rect x="2702.4" y="286.6" width="56.0" height="21.4" fill="#2f6f73"/>
+<text x="2730.4" y="278.6" text-anchor="middle" font-family="sans-serif" font-size="11">990.00</text>
 <text x="2730.4" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">sqs</text>
 <text x="2730.4" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">retry-sqs-rate005</text>
 </svg>
