@@ -149,9 +149,9 @@ class ExperimentRepository:
                   %s,
                   %s,
                   %s,
-                  now(),
-                  now(),
-                  now(),
+                  clock_timestamp(),
+                  clock_timestamp(),
+                  clock_timestamp(),
                   %s,
                   %s,
                   %s,
@@ -180,7 +180,7 @@ class ExperimentRepository:
             cursor.execute(
                 """
                 UPDATE experiment_runs
-                SET finished_at = now()
+                SET finished_at = clock_timestamp()
                 WHERE run_id = %s
                 """,
                 (run_id,),
