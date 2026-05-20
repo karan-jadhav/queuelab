@@ -80,3 +80,16 @@ WHERE status = 'leased';
 CREATE INDEX IF NOT EXISTS idx_pg_queue_dead
 ON pg_queue_jobs (run_id)
 WHERE status = 'dead';
+
+CREATE TABLE IF NOT EXISTS queue_depth_samples (
+  id BIGSERIAL PRIMARY KEY,
+  run_id TEXT NOT NULL REFERENCES experiment_runs(run_id),
+  backend TEXT NOT NULL,
+  sampled_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  ready INT NOT NULL,
+  in_flight INT NOT NULL,
+  dead INT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_queue_depth_samples_run_id
+ON queue_depth_samples (run_id, sampled_at);

@@ -28,7 +28,14 @@ def summarize_run(run_id: str) -> dict[str, Any]:
                   COALESCE(a.successful_attempts, 0) AS successful_attempts,
                   COALESCE(a.duplicate_attempts, 0) AS duplicate_attempts,
                   COALESCE(a.failed_attempts, 0) AS failed_attempts,
-                  COALESCE(p.unique_processed_jobs, 0) AS unique_processed_jobs
+                  COALESCE(a.processing_ms_p50, 0) AS processing_ms_p50,
+                  COALESCE(a.processing_ms_p95, 0) AS processing_ms_p95,
+                  COALESCE(a.db_write_ms_p50, 0) AS db_write_ms_p50,
+                  COALESCE(a.db_write_ms_p95, 0) AS db_write_ms_p95,
+                  COALESCE(p.unique_processed_jobs, 0) AS unique_processed_jobs,
+                  COALESCE(q.max_ready_depth, 0) AS max_ready_depth,
+                  COALESCE(q.max_in_flight_depth, 0) AS max_in_flight_depth,
+                  COALESCE(q.max_dead_depth, 0) AS max_dead_depth
                 FROM experiment_runs r
                 LEFT JOIN (
                   SELECT
@@ -37,7 +44,11 @@ def summarize_run(run_id: str) -> dict[str, Any]:
                     count(DISTINCT job_id) AS unique_attempted_jobs,
                     count(*) FILTER (WHERE status = 'success') AS successful_attempts,
                     count(*) FILTER (WHERE status = 'duplicate') AS duplicate_attempts,
-                    count(*) FILTER (WHERE status = 'failed') AS failed_attempts
+                    count(*) FILTER (WHERE status = 'failed') AS failed_attempts,
+                    percentile_cont(0.5) WITHIN GROUP (ORDER BY processing_ms) AS processing_ms_p50,
+                    percentile_cont(0.95) WITHIN GROUP (ORDER BY processing_ms) AS processing_ms_p95,
+                    percentile_cont(0.5) WITHIN GROUP (ORDER BY db_write_ms) AS db_write_ms_p50,
+                    percentile_cont(0.95) WITHIN GROUP (ORDER BY db_write_ms) AS db_write_ms_p95
                   FROM job_attempts
                   GROUP BY run_id
                 ) a ON a.run_id = r.run_id
@@ -48,6 +59,15 @@ def summarize_run(run_id: str) -> dict[str, Any]:
                   FROM processed_jobs
                   GROUP BY run_id
                 ) p ON p.run_id = r.run_id
+                LEFT JOIN (
+                  SELECT
+                    run_id,
+                    max(ready) AS max_ready_depth,
+                    max(in_flight) AS max_in_flight_depth,
+                    max(dead) AS max_dead_depth
+                  FROM queue_depth_samples
+                  GROUP BY run_id
+                ) q ON q.run_id = r.run_id
                 WHERE r.run_id = %s
                 """,
                 (run_id,),
@@ -79,6 +99,13 @@ def summarize_run(run_id: str) -> dict[str, Any]:
         "successful_attempts": int(row["successful_attempts"] or 0),
         "duplicate_attempts": int(row["duplicate_attempts"] or 0),
         "failed_attempts": int(row["failed_attempts"] or 0),
+        "processing_ms_p50": float(row["processing_ms_p50"] or 0),
+        "processing_ms_p95": float(row["processing_ms_p95"] or 0),
+        "db_write_ms_p50": float(row["db_write_ms_p50"] or 0),
+        "db_write_ms_p95": float(row["db_write_ms_p95"] or 0),
+        "max_ready_depth": int(row["max_ready_depth"] or 0),
+        "max_in_flight_depth": int(row["max_in_flight_depth"] or 0),
+        "max_dead_depth": int(row["max_dead_depth"] or 0),
         "jobs_per_second": throughput,
     }
 
@@ -96,6 +123,10 @@ def summary_to_markdown(summary: dict[str, Any]) -> str:
         ("total_attempts", summary["total_attempts"]),
         ("duplicate_attempts", summary["duplicate_attempts"]),
         ("failed_attempts", summary["failed_attempts"]),
+        ("processing_ms_p95", f"{summary['processing_ms_p95']:.1f}"),
+        ("db_write_ms_p95", f"{summary['db_write_ms_p95']:.1f}"),
+        ("max_ready_depth", summary["max_ready_depth"]),
+        ("max_dead_depth", summary["max_dead_depth"]),
         ("duration_seconds", f"{summary['duration_seconds']:.3f}"),
         ("jobs_per_second", f"{summary['jobs_per_second']:.2f}"),
     ]

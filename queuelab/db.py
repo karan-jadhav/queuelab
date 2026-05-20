@@ -175,6 +175,30 @@ class ExperimentRepository:
                 ),
             )
 
+    def record_queue_depth(
+        self,
+        *,
+        run_id: str,
+        backend: str,
+        ready: int,
+        in_flight: int,
+        dead: int,
+    ) -> None:
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO queue_depth_samples (
+                  run_id,
+                  backend,
+                  ready,
+                  in_flight,
+                  dead
+                )
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (run_id, backend, ready, in_flight, dead),
+            )
+
     def finish_run(self, run_id: str) -> None:
         with self.connection.cursor() as cursor:
             cursor.execute(

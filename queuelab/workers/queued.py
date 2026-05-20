@@ -5,7 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 from time import perf_counter, sleep
-from threading import Lock, Thread
+from threading import Event, Lock, Thread
 from typing import Any
 
 from queuelab import metrics
@@ -207,10 +207,23 @@ def run_queued(
         )
         for worker_index in range(workers)
     ]
+    stop_depth_sampler = Event()
+    depth_sampler = Thread(
+        target=_sample_queue_depth,
+        kwargs={
+            "backend_name": backend_name,
+            "queue_factory": queue_factory,
+            "run_id": run_id,
+            "stop": stop_depth_sampler,
+        },
+    )
+    depth_sampler.start()
     for thread in threads:
         thread.start()
     for thread in threads:
         thread.join()
+    stop_depth_sampler.set()
+    depth_sampler.join()
 
     with connect() as connection:
         repository = ExperimentRepository(connection)
@@ -225,6 +238,42 @@ def run_queued(
         duplicate_jobs=counters.duplicate_jobs,
         failed_jobs=counters.failed_jobs,
     )
+
+
+def _sample_queue_depth(
+    *,
+    backend_name: str,
+    queue_factory: Any,
+    run_id: str,
+    stop: Event,
+) -> None:
+    queue = queue_factory()
+    try:
+        queue.setup()
+        with connect() as connection:
+            repository = ExperimentRepository(connection)
+            while not stop.is_set():
+                depth = queue.depth()
+                repository.record_queue_depth(
+                    run_id=run_id,
+                    backend=backend_name,
+                    ready=depth.ready,
+                    in_flight=depth.in_flight,
+                    dead=depth.dead,
+                )
+                connection.commit()
+                stop.wait(1)
+            depth = queue.depth()
+            repository.record_queue_depth(
+                run_id=run_id,
+                backend=backend_name,
+                ready=depth.ready,
+                in_flight=depth.in_flight,
+                dead=depth.dead,
+            )
+            connection.commit()
+    finally:
+        queue.close()
 
 
 def _run_worker(
