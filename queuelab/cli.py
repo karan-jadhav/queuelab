@@ -9,6 +9,11 @@ import typer
 from queuelab import __version__
 from queuelab.dataset.download_gharchive import DEFAULT_BASE_URL, download_jobs
 from queuelab.dataset.inspect import inspect_dataset
+from queuelab.reporting.summarize import (
+    summarize_run,
+    summary_to_json,
+    summary_to_markdown,
+)
 from queuelab.workers.direct import run_direct
 
 
@@ -83,6 +88,24 @@ def dataset_inspect(
     typer.echo(f"source_files: {', '.join(summary['source_files'])}")
     typer.echo(f"event_types: {', '.join(summary['event_types'])}")
     typer.echo(f"first_job_id: {summary['first_job_id']}")
+
+
+@report_app.command("summarize")
+def report_summarize(
+    run_id: Annotated[str, typer.Option(help="Run identifier to summarize.")],
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: json or markdown."),
+    ] = "markdown",
+) -> None:
+    summary = summarize_run(run_id)
+    if output_format == "json":
+        typer.echo(summary_to_json(summary))
+        return
+    if output_format == "markdown":
+        typer.echo(summary_to_markdown(summary))
+        return
+    raise typer.BadParameter("format must be json or markdown")
 
 
 @app.command("run")
