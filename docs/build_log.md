@@ -490,3 +490,61 @@ Current notes:
 - This is a Postgres queue wiring check only, not an experiment result.
 - Workers lease rows with `FOR UPDATE SKIP LOCKED`.
 - Queue rows are allowed to duplicate job IDs; `processed_jobs` remains the idempotency boundary.
+
+## All Backend Parity Smoke Check
+
+Goal: confirm direct processing, RabbitMQ, SQS, and the Postgres queue all preserve the same basic attempt and idempotency behavior before running larger comparisons.
+
+Temporary dataset:
+
+- path: `/tmp/queuelab-smoke/jobs_sqs_dup.jsonl`
+- rows: 3
+- unique job IDs: 2
+- duplicate job IDs: 1
+
+Run commands:
+
+```bash
+uv run python -m queuelab run \
+  --backend direct \
+  --dataset /tmp/queuelab-smoke/jobs_sqs_dup.jsonl \
+  --run-id smoke-parity-direct-001
+
+uv run python -m queuelab run \
+  --backend rabbitmq \
+  --dataset /tmp/queuelab-smoke/jobs_sqs_dup.jsonl \
+  --run-id smoke-parity-rabbitmq-001 \
+  --workers 2 \
+  --batch-size 2 \
+  --prefetch-count 2
+
+uv run python -m queuelab run \
+  --backend sqs \
+  --dataset /tmp/queuelab-smoke/jobs_sqs_dup.jsonl \
+  --run-id smoke-parity-sqs-001 \
+  --workers 2 \
+  --batch-size 2 \
+  --sqs-wait-seconds 1
+
+uv run python -m queuelab run \
+  --backend postgres \
+  --dataset /tmp/queuelab-smoke/jobs_sqs_dup.jsonl \
+  --run-id smoke-parity-postgres-001 \
+  --workers 2 \
+  --batch-size 2
+```
+
+Observed smoke-check summaries:
+
+| backend | run_id | unique_processed_jobs | total_attempts | duplicate_attempts | failed_attempts | duration_seconds | jobs_per_second |
+|---|---|---:|---:|---:|---:|---:|---:|
+| direct | smoke-parity-direct-001 | 2 | 3 | 1 | 0 | 0.008 | 241.63 |
+| rabbitmq | smoke-parity-rabbitmq-001 | 2 | 3 | 1 | 0 | 0.060 | 33.37 |
+| sqs | smoke-parity-sqs-001 | 2 | 3 | 1 | 0 | 0.068 | 29.35 |
+| postgres | smoke-parity-postgres-001 | 2 | 3 | 1 | 0 | 0.058 | 34.23 |
+
+Current notes:
+
+- This is a parity smoke check only, not a benchmark.
+- All backends recorded one attempt per input row.
+- All backends wrote only two idempotent side effects for the two unique job IDs.
