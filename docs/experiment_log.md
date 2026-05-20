@@ -207,3 +207,72 @@ Notes:
 - SQS recovery time follows visibility timeout.
 - Postgres queue recovery time follows the local lease timeout and requeue sweep in `receive`.
 - This is still a small recovery smoke check; it is not a throughput comparison.
+
+## EXP-004 Poison Message Smoke
+
+Goal: confirm poison messages are handled as terminal failures across RabbitMQ, SQS, and Postgres queue. A payload marked with `chaos: "poison"` should record one failed attempt, avoid writing a side effect, and move to DLQ/dead state.
+
+Dataset:
+
+- path: `/tmp/queuelab-smoke/jobs_poison_10.jsonl`
+- source: first 10 rows from `data/jobs_10k.jsonl`, with the final row marked `chaos: "poison"`
+- rows: 10
+- unique job IDs: 10
+- poison jobs: 1
+- SHA256: `413f3f42b7a698161868109794011e50c320a947342a1a3f8f35587c9b90a279`
+
+Run environment:
+
+- git commit at run time: `e806b54`
+- workers: 2
+- batch size: 2
+- chaos mode: fail poison messages
+- RabbitMQ prefetch count: 2
+
+Commands:
+
+```bash
+uv run python -m queuelab run \
+  --backend rabbitmq \
+  --dataset /tmp/queuelab-smoke/jobs_poison_10.jsonl \
+  --run-id exp004-rabbitmq-poison-001 \
+  --experiment-id exp004_poison_smoke \
+  --workers 2 \
+  --batch-size 2 \
+  --prefetch-count 2 \
+  --chaos-fail-poison-messages
+
+uv run python -m queuelab run \
+  --backend sqs \
+  --dataset /tmp/queuelab-smoke/jobs_poison_10.jsonl \
+  --run-id exp004-sqs-poison-001 \
+  --experiment-id exp004_poison_smoke \
+  --workers 2 \
+  --batch-size 2 \
+  --sqs-wait-seconds 1 \
+  --chaos-fail-poison-messages
+
+uv run python -m queuelab run \
+  --backend postgres \
+  --dataset /tmp/queuelab-smoke/jobs_poison_10.jsonl \
+  --run-id exp004-postgres-poison-001 \
+  --experiment-id exp004_poison_smoke \
+  --workers 2 \
+  --batch-size 2 \
+  --chaos-fail-poison-messages
+```
+
+Summary:
+
+| backend | run_id | unique_processed_jobs | total_attempts | duplicate_attempts | failed_attempts | dead_depth | duration_seconds | jobs_per_second |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| rabbitmq | exp004-rabbitmq-poison-001 | 9 | 10 | 0 | 1 | 1 | 0.085 | 105.54 |
+| sqs | exp004-sqs-poison-001 | 9 | 10 | 0 | 1 | 1 | 0.119 | 75.87 |
+| postgres | exp004-postgres-poison-001 | 9 | 10 | 0 | 1 | 1 | 0.117 | 76.74 |
+
+Notes:
+
+- RabbitMQ uses `basic_reject(requeue=False)` and the configured DLX.
+- SQS sends the poison payload to the local DLQ and deletes it from the main queue.
+- Postgres queue marks the leased row `dead`.
+- This smoke check validates terminal poison handling only; it does not measure retry policy behavior.
