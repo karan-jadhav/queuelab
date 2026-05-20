@@ -141,6 +141,10 @@ def run(
         bool,
         typer.Option(help="Send payloads marked with chaos=poison to dead-letter handling."),
     ] = False,
+    chaos_db_delay_ms: Annotated[
+        int,
+        typer.Option(help="Sleep this many milliseconds before each DB side-effect write."),
+    ] = 0,
     metrics_port: Annotated[
         int | None,
         typer.Option(help="Expose Prometheus metrics on this port."),
@@ -156,6 +160,7 @@ def run(
         crash_after_db_commit_attempts=chaos_crash_after_db_commit_attempts,
         max_worker_crashes=chaos_max_worker_crashes,
         fail_poison_messages=chaos_fail_poison_messages,
+        db_delay_ms=chaos_db_delay_ms,
     )
 
     if backend == "direct":
@@ -163,6 +168,7 @@ def run(
             dataset=dataset,
             run_id=run_id,
             experiment_id=experiment_id,
+            db_delay_ms=chaos_db_delay_ms,
         )
         typer.echo(f"run_id: {direct_result.run_id}")
         typer.echo(f"total_attempts: {direct_result.total_attempts}")

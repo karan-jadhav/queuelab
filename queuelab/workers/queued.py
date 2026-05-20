@@ -43,6 +43,7 @@ class ChaosConfig:
     crash_after_db_commit_attempts: int = 0
     max_worker_crashes: int = 1
     fail_poison_messages: bool = False
+    db_delay_ms: int = 0
 
 
 class WorkerCrash(RuntimeError):
@@ -398,6 +399,7 @@ def _process_received_job(
     if chaos_config.fail_poison_messages and _is_poison_job(received_job.payload):
         raise PoisonMessageError("poison message requested by payload chaos marker")
     db_started = perf_counter()
+    _sleep_ms(chaos_config.db_delay_ms)
     inserted = repository.insert_processed_job(
         run_id=run_id,
         job_id=_required_job_id(received_job.payload),
@@ -433,6 +435,7 @@ def _chaos_config_dict(chaos_config: ChaosConfig | None) -> dict[str, Any]:
         "crash_after_db_commit_attempts": chaos_config.crash_after_db_commit_attempts,
         "max_worker_crashes": chaos_config.max_worker_crashes,
         "fail_poison_messages": chaos_config.fail_poison_messages,
+        "db_delay_ms": chaos_config.db_delay_ms,
     }
 
 
@@ -470,3 +473,8 @@ def _elapsed_ms(started: float) -> int:
 
 def _elapsed_seconds(started: float) -> float:
     return perf_counter() - started
+
+
+def _sleep_ms(delay_ms: int) -> None:
+    if delay_ms > 0:
+        sleep(delay_ms / 1000)

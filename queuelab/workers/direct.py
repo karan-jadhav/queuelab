@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 from pathlib import Path
-from time import perf_counter
+from time import perf_counter, sleep
 from typing import Any
 
 from queuelab.db import ExperimentRepository, ExperimentRun, connect
@@ -25,6 +25,7 @@ def run_direct(
     run_id: str,
     experiment_id: str = "dev_direct",
     worker_id: str = "direct-1",
+    db_delay_ms: int = 0,
 ) -> DirectRunResult:
     with connect() as connection:
         repository = ExperimentRepository(connection)
@@ -37,6 +38,7 @@ def run_direct(
                 job_count_target=_count_lines(dataset),
                 worker_count=1,
                 batch_size=1,
+                chaos_config={"db_delay_ms": db_delay_ms} if db_delay_ms > 0 else {},
             )
         )
 
@@ -50,6 +52,7 @@ def run_direct(
 
             started = perf_counter()
             db_started = perf_counter()
+            _sleep_ms(db_delay_ms)
             inserted = repository.insert_processed_job(
                 run_id=run_id,
                 job_id=job_id,
@@ -125,3 +128,8 @@ def _result_hash(job: dict[str, Any]) -> str:
 
 def _elapsed_ms(started: float) -> int:
     return int((perf_counter() - started) * 1000)
+
+
+def _sleep_ms(delay_ms: int) -> None:
+    if delay_ms > 0:
+        sleep(delay_ms / 1000)
