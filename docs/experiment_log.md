@@ -130,3 +130,80 @@ Notes:
 - Total attempts increased from 3 input rows to 4 because one committed but unacked message was redelivered.
 - Duplicate attempts include the dataset's existing duplicate plus the crash-induced redelivery.
 - The next larger version should use a unique-job dataset so crash-induced duplicates are easier to isolate.
+
+## EXP-002 Cross-Backend Unique-Job Smoke
+
+Goal: run the crash-after-DB-commit window across RabbitMQ, SQS, and Postgres queue using a tiny dataset with no duplicate job IDs. This isolates the duplicate caused by recovery from the crash window.
+
+Dataset:
+
+- path: `/tmp/queuelab-smoke/jobs_unique_10.jsonl`
+- source: first 10 rows from `data/jobs_10k.jsonl`
+- rows: 10
+- unique job IDs: 10
+- SHA256: `d8c66fbd95656185bcc86a228721656fbbea2dae354766a3860fee4f95570591`
+
+Run environment:
+
+- git commit at run time: `35e129a`
+- workers: 2
+- batch size: 1
+- chaos mode: crash after DB commit before ack
+- controlled crashes: 1
+- RabbitMQ prefetch count: 1
+- SQS visibility timeout override: 2 seconds
+- Postgres queue lease timeout: 1 second
+
+Commands:
+
+```bash
+uv run python -m queuelab run \
+  --backend rabbitmq \
+  --dataset /tmp/queuelab-smoke/jobs_unique_10.jsonl \
+  --run-id exp002-rabbitmq-crash-unique-001 \
+  --experiment-id exp002_worker_crash_unique_smoke \
+  --workers 2 \
+  --batch-size 1 \
+  --prefetch-count 1 \
+  --chaos-crash-after-db-commit-attempts 1 \
+  --chaos-max-worker-crashes 1
+
+uv run python -m queuelab run \
+  --backend sqs \
+  --dataset /tmp/queuelab-smoke/jobs_unique_10.jsonl \
+  --run-id exp002-sqs-crash-unique-001 \
+  --experiment-id exp002_worker_crash_unique_smoke \
+  --workers 2 \
+  --batch-size 1 \
+  --sqs-wait-seconds 1 \
+  --sqs-visibility-timeout-seconds 2 \
+  --chaos-crash-after-db-commit-attempts 1 \
+  --chaos-max-worker-crashes 1
+
+uv run python -m queuelab run \
+  --backend postgres \
+  --dataset /tmp/queuelab-smoke/jobs_unique_10.jsonl \
+  --run-id exp002-postgres-crash-unique-001 \
+  --experiment-id exp002_worker_crash_unique_smoke \
+  --workers 2 \
+  --batch-size 1 \
+  --pg-lease-timeout-seconds 1 \
+  --chaos-crash-after-db-commit-attempts 1 \
+  --chaos-max-worker-crashes 1
+```
+
+Summary:
+
+| backend | run_id | unique_processed_jobs | total_attempts | duplicate_attempts | failed_attempts | duration_seconds | jobs_per_second |
+|---|---|---:|---:|---:|---:|---:|---:|
+| rabbitmq | exp002-rabbitmq-crash-unique-001 | 10 | 11 | 1 | 0 | 0.104 | 96.01 |
+| sqs | exp002-sqs-crash-unique-001 | 10 | 11 | 1 | 0 | 2.391 | 4.18 |
+| postgres | exp002-postgres-crash-unique-001 | 10 | 11 | 1 | 0 | 1.061 | 9.43 |
+
+Notes:
+
+- Each backend produced exactly one extra attempt from one controlled crash.
+- `processed_jobs` stayed at 10 for all backends, so the crash did not duplicate side effects.
+- SQS recovery time follows visibility timeout.
+- Postgres queue recovery time follows the local lease timeout and requeue sweep in `receive`.
+- This is still a small recovery smoke check; it is not a throughput comparison.
