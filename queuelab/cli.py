@@ -15,6 +15,7 @@ from queuelab.reporting.summarize import (
     summary_to_markdown,
 )
 from queuelab.workers.direct import run_direct
+from queuelab.workers.queued import run_rabbitmq
 
 
 app = typer.Typer(
@@ -114,24 +115,44 @@ def run(
     dataset: Annotated[Path | None, typer.Option(help="Normalized JSONL dataset.")] = None,
     run_id: Annotated[str | None, typer.Option(help="Unique run identifier.")] = None,
     experiment_id: Annotated[str, typer.Option(help="Experiment identifier.")] = "dev_direct",
+    batch_size: Annotated[int, typer.Option(help="Queue receive batch size.")] = 10,
+    prefetch_count: Annotated[int, typer.Option(help="RabbitMQ prefetch count.")] = 10,
 ) -> None:
-    if backend != "direct":
-        typer.echo(f"backend {backend!r} is not implemented yet")
-        raise typer.Exit(code=1)
     if dataset is None:
-        raise typer.BadParameter("--dataset is required for direct runs")
+        raise typer.BadParameter("--dataset is required")
     if run_id is None:
-        raise typer.BadParameter("--run-id is required for direct runs")
+        raise typer.BadParameter("--run-id is required")
 
-    result = run_direct(
-        dataset=dataset,
-        run_id=run_id,
-        experiment_id=experiment_id,
-    )
-    typer.echo(f"run_id: {result.run_id}")
-    typer.echo(f"total_attempts: {result.total_attempts}")
-    typer.echo(f"processed_jobs: {result.processed_jobs}")
-    typer.echo(f"duplicate_jobs: {result.duplicate_jobs}")
+    if backend == "direct":
+        direct_result = run_direct(
+            dataset=dataset,
+            run_id=run_id,
+            experiment_id=experiment_id,
+        )
+        typer.echo(f"run_id: {direct_result.run_id}")
+        typer.echo(f"total_attempts: {direct_result.total_attempts}")
+        typer.echo(f"processed_jobs: {direct_result.processed_jobs}")
+        typer.echo(f"duplicate_jobs: {direct_result.duplicate_jobs}")
+        return
+
+    if backend == "rabbitmq":
+        rabbitmq_result = run_rabbitmq(
+            dataset=dataset,
+            run_id=run_id,
+            experiment_id=experiment_id,
+            batch_size=batch_size,
+            prefetch_count=prefetch_count,
+        )
+        typer.echo(f"run_id: {rabbitmq_result.run_id}")
+        typer.echo(f"backend: {rabbitmq_result.backend}")
+        typer.echo(f"total_attempts: {rabbitmq_result.total_attempts}")
+        typer.echo(f"processed_jobs: {rabbitmq_result.processed_jobs}")
+        typer.echo(f"duplicate_jobs: {rabbitmq_result.duplicate_jobs}")
+        typer.echo(f"failed_jobs: {rabbitmq_result.failed_jobs}")
+        return
+
+    typer.echo(f"backend {backend!r} is not implemented yet")
+    raise typer.Exit(code=1)
 
 
 def main() -> None:
