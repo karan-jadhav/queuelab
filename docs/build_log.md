@@ -243,3 +243,57 @@ Current notes:
 - This is a worker-pool wiring check only, not an experiment result.
 - Each worker owns its own RabbitMQ and Postgres connections.
 - The run row is committed before workers start so attempt rows can reference it safely.
+
+## Metrics Smoke Check
+
+Goal: confirm the Prometheus metrics instrumentation can initialize during a normal run without changing processing behavior.
+
+Temporary dataset:
+
+- path: `/tmp/queuelab-smoke/jobs_metrics.jsonl`
+- rows: 1
+
+Run command:
+
+```bash
+uv run python -m queuelab run \
+  --backend direct \
+  --dataset /tmp/queuelab-smoke/jobs_metrics.jsonl \
+  --run-id smoke-direct-metrics-001 \
+  --metrics-port 8001
+```
+
+Runner output:
+
+```text
+run_id: smoke-direct-metrics-001
+total_attempts: 1
+processed_jobs: 1
+duplicate_jobs: 0
+```
+
+Summary command:
+
+```bash
+uv run python -m queuelab report summarize --run-id smoke-direct-metrics-001
+```
+
+Observed smoke-check summary:
+
+| metric | value |
+|---|---:|
+| run_id | smoke-direct-metrics-001 |
+| backend | direct |
+| dataset | jobs_metrics.jsonl |
+| unique_processed_jobs | 1 |
+| total_attempts | 1 |
+| duplicate_attempts | 0 |
+| failed_attempts | 0 |
+| duration_seconds | 0.005 |
+| jobs_per_second | 183.28 |
+
+Current notes:
+
+- This is a metrics wiring check only, not an experiment result.
+- The metrics HTTP endpoint is most useful during longer-running jobs because short smoke runs exit quickly.
+- Prometheus and Grafana services are not wired yet.
