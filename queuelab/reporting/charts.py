@@ -27,6 +27,56 @@ def generate_charts(summary_dir: Path, out_dir: Path) -> list[Path]:
             ylabel="attempts",
             include_failed=True,
         ),
+        _write_bar_chart(
+            summaries=summaries,
+            out=out_dir / "rabbitmq_prefetch_throughput.svg",
+            title="EXP-007 RabbitMQ Prefetch Throughput",
+            experiment_id="exp007_rabbitmq_prefetch",
+            metric="jobs_per_second",
+            ylabel="jobs/s",
+        ),
+        _write_bar_chart(
+            summaries=summaries,
+            out=out_dir / "postgres_concurrency_throughput.svg",
+            title="EXP-008 Postgres Queue Concurrency",
+            experiment_id="exp008_postgres_concurrency",
+            metric="jobs_per_second",
+            ylabel="jobs/s",
+        ),
+        _write_bar_chart(
+            summaries=summaries,
+            out=out_dir / "sqs_visibility_slowdb.svg",
+            title="EXP-006 SQS Visibility With Slow DB",
+            experiment_id="exp006_sqs_visibility_timeout",
+            metric="jobs_per_second",
+            ylabel="jobs/s",
+        ),
+        _write_bar_chart(
+            summaries=summaries,
+            out=out_dir / "db_delay_latency_p95.svg",
+            title="EXP-005 DB Delay p95 Write Latency",
+            experiment_id="exp005_db_slowdown",
+            metric="db_write_ms_p95",
+            ylabel="ms",
+        ),
+        _write_bar_chart(
+            summaries=_with_retry_amplification(summaries),
+            out=out_dir / "retry_attempt_amplification.svg",
+            title="EXP-009 Retry Attempt Amplification",
+            experiment_id="exp009_retry_storm",
+            metric="attempt_amplification",
+            ylabel="attempts/job",
+            include_failed=True,
+        ),
+        _write_bar_chart(
+            summaries=summaries,
+            out=out_dir / "queue_ready_depth.svg",
+            title="Max Ready Queue Depth",
+            experiment_id_prefix="exp00",
+            metric="max_ready_depth",
+            ylabel="messages",
+            include_failed=True,
+        ),
     ]
     return written
 
@@ -36,6 +86,18 @@ def _load_summaries(summary_dir: Path) -> list[dict[str, Any]]:
     for path in sorted(summary_dir.glob("*.json")):
         summaries.append(json.loads(path.read_text(encoding="utf-8")))
     return summaries
+
+
+def _with_retry_amplification(summaries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for summary in summaries:
+        processed = float(summary.get("unique_processed_jobs") or 0)
+        row = dict(summary)
+        row["attempt_amplification"] = (
+            float(summary.get("total_attempts") or 0) / processed if processed > 0 else 0
+        )
+        rows.append(row)
+    return rows
 
 
 def _write_bar_chart(
@@ -67,7 +129,7 @@ def _write_bar_chart(
     margin_bottom = 112
     plot_width = width - margin_left - 32
     plot_height = height - 92 - margin_bottom
-    max_value = max((float(row[metric]) for row in rows), default=1)
+    max_value = max((float(row.get(metric, 0)) for row in rows), default=1)
     bar_width = min(56, plot_width / max(len(rows), 1) * 0.7)
     step = plot_width / max(len(rows), 1)
 
@@ -80,7 +142,7 @@ def _write_bar_chart(
         f'<line x1="{margin_left}" y1="82" x2="{margin_left}" y2="{height - margin_bottom}" stroke="#222"/>',
     ]
     for index, row in enumerate(rows):
-        value = float(row[metric])
+        value = float(row.get(metric, 0))
         bar_height = 0 if max_value == 0 else value / max_value * plot_height
         x = margin_left + index * step + (step - bar_width) / 2
         y = height - margin_bottom - bar_height
@@ -100,7 +162,14 @@ def _write_bar_chart(
 
 
 def _short_run_id(run_id: str) -> str:
-    return run_id.replace("happy-10k-", "").replace("exp002-", "e2 ").replace("exp004-", "e4 ")
+    return (
+        run_id.replace("happy-10k-", "")
+        .replace("exp002-", "e2 ")
+        .replace("exp004-", "e4 ")
+        .replace("v02-", "")
+        .replace("rabbitmq-", "rmq ")
+        .replace("postgres-", "pg ")
+    )
 
 
 def _escape(value: object) -> str:
