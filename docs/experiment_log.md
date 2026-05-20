@@ -81,3 +81,52 @@ Notes:
 - SQS uses LocalStack, not AWS SQS.
 - No failure injection, slow database mode, retries, poison messages, or crash windows were enabled.
 - Results are local-machine observations and should be rerun before making broader claims.
+
+## EXP-002 Worker Crash Smoke
+
+Goal: prove the first controlled crash window: a worker commits the idempotent side effect and attempt row, then exits before queue ack. RabbitMQ should redeliver the unacked message, and `processed_jobs` should block a second side effect.
+
+Dataset:
+
+- path: `/tmp/queuelab-smoke/jobs_sqs_dup.jsonl`
+- rows: 3
+- unique job IDs: 2
+- duplicate job IDs already present in dataset: 1
+
+Run environment:
+
+- git commit at run time: `c0937eb`
+- backend: RabbitMQ
+- workers: 2
+- batch size: 1
+- prefetch count: 1
+- chaos mode: crash after DB commit before ack
+- controlled crashes: 1
+
+Command:
+
+```bash
+uv run python -m queuelab run \
+  --backend rabbitmq \
+  --dataset /tmp/queuelab-smoke/jobs_sqs_dup.jsonl \
+  --run-id smoke-rabbitmq-crash-after-commit-002 \
+  --experiment-id exp002_worker_crash_smoke \
+  --workers 2 \
+  --batch-size 1 \
+  --prefetch-count 1 \
+  --chaos-crash-after-db-commit-attempts 1 \
+  --chaos-max-worker-crashes 1
+```
+
+Summary:
+
+| backend | run_id | unique_processed_jobs | total_attempts | duplicate_attempts | failed_attempts | duration_seconds | jobs_per_second |
+|---|---|---:|---:|---:|---:|---:|---:|
+| rabbitmq | smoke-rabbitmq-crash-after-commit-002 | 2 | 4 | 2 | 0 | 0.063 | 31.50 |
+
+Notes:
+
+- This is a crash-window smoke check only, not a backend comparison.
+- Total attempts increased from 3 input rows to 4 because one committed but unacked message was redelivered.
+- Duplicate attempts include the dataset's existing duplicate plus the crash-induced redelivery.
+- The next larger version should use a unique-job dataset so crash-induced duplicates are easier to isolate.
