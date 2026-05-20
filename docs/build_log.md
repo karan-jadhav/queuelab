@@ -183,3 +183,63 @@ Current notes:
 - This is a broker wiring check only, not an experiment result.
 - RabbitMQ publish uses persistent messages.
 - RabbitMQ consume uses manual ack after the database commit.
+
+## RabbitMQ Worker Pool Smoke Check
+
+Goal: confirm queued processing can run more than one RabbitMQ worker while preserving the same idempotency behavior.
+
+Temporary dataset:
+
+- path: `/tmp/queuelab-smoke/jobs_pool_dup.jsonl`
+- rows: 3
+- unique job IDs: 2
+- duplicate job IDs: 1
+
+Run command:
+
+```bash
+uv run python -m queuelab run \
+  --backend rabbitmq \
+  --dataset /tmp/queuelab-smoke/jobs_pool_dup.jsonl \
+  --run-id smoke-rabbitmq-workers-001 \
+  --workers 2 \
+  --batch-size 2 \
+  --prefetch-count 2
+```
+
+Runner output:
+
+```text
+run_id: smoke-rabbitmq-workers-001
+backend: rabbitmq
+total_attempts: 3
+processed_jobs: 2
+duplicate_jobs: 1
+failed_jobs: 0
+```
+
+Summary command:
+
+```bash
+uv run python -m queuelab report summarize --run-id smoke-rabbitmq-workers-001
+```
+
+Observed smoke-check summary:
+
+| metric | value |
+|---|---:|
+| run_id | smoke-rabbitmq-workers-001 |
+| backend | rabbitmq |
+| dataset | jobs_pool_dup.jsonl |
+| unique_processed_jobs | 2 |
+| total_attempts | 3 |
+| duplicate_attempts | 1 |
+| failed_attempts | 0 |
+| duration_seconds | 0.062 |
+| jobs_per_second | 32.33 |
+
+Current notes:
+
+- This is a worker-pool wiring check only, not an experiment result.
+- Each worker owns its own RabbitMQ and Postgres connections.
+- The run row is committed before workers start so attempt rows can reference it safely.
