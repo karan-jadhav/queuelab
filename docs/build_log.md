@@ -371,3 +371,63 @@ Current notes:
 - This is SQS infra verification only, not a worker run.
 - The main queue uses a DLQ redrive policy with `maxReceiveCount` defaulting to 3.
 - The default visibility timeout is 30 seconds.
+
+## SQS Duplicate Smoke Check
+
+Goal: confirm the SQS backend can publish normalized jobs to LocalStack, receive them with worker threads, delete processed messages, and preserve idempotency behavior.
+
+Temporary dataset:
+
+- path: `/tmp/queuelab-smoke/jobs_sqs_dup.jsonl`
+- rows: 3
+- unique job IDs: 2
+- duplicate job IDs: 1
+
+Run command:
+
+```bash
+uv run python -m queuelab run \
+  --backend sqs \
+  --dataset /tmp/queuelab-smoke/jobs_sqs_dup.jsonl \
+  --run-id smoke-sqs-duplicates-001 \
+  --workers 2 \
+  --batch-size 2 \
+  --sqs-wait-seconds 1
+```
+
+Runner output:
+
+```text
+run_id: smoke-sqs-duplicates-001
+backend: sqs
+total_attempts: 3
+processed_jobs: 2
+duplicate_jobs: 1
+failed_jobs: 0
+```
+
+Summary command:
+
+```bash
+uv run python -m queuelab report summarize --run-id smoke-sqs-duplicates-001
+```
+
+Observed smoke-check summary:
+
+| metric | value |
+|---|---:|
+| run_id | smoke-sqs-duplicates-001 |
+| backend | sqs |
+| dataset | jobs_sqs_dup.jsonl |
+| unique_processed_jobs | 2 |
+| total_attempts | 3 |
+| duplicate_attempts | 1 |
+| failed_attempts | 0 |
+| duration_seconds | 0.083 |
+| jobs_per_second | 24.11 |
+
+Current notes:
+
+- This is a LocalStack SQS wiring check only, not an experiment result.
+- SQS ack is `DeleteMessage` after the database commit.
+- SQS fail currently relies on visibility timeout and redrive policy by not deleting the message.
