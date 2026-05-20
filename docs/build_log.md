@@ -297,3 +297,40 @@ Current notes:
 - This is a metrics wiring check only, not an experiment result.
 - The metrics HTTP endpoint is most useful during longer-running jobs because short smoke runs exit quickly.
 - Prometheus and Grafana services are not wired yet.
+
+## Observability Infra Smoke Check
+
+Goal: confirm Prometheus and Grafana start with the QueueLab scrape config, datasource provisioning, and starter dashboard.
+
+Config checks:
+
+```bash
+docker compose config
+uv run python -m json.tool infra/grafana/dashboards/queuelab.json
+```
+
+Image tags verified by pull:
+
+```bash
+docker compose pull prometheus grafana
+```
+
+Started services:
+
+```bash
+docker compose up -d prometheus grafana
+docker compose ps prometheus grafana
+```
+
+Observed service status:
+
+```text
+queuelab-prometheus-1   prom/prometheus:v3.9.1   Up   0.0.0.0:9090->9090/tcp
+queuelab-grafana-1      grafana/grafana:12.4.0   Up   0.0.0.0:3000->3000/tcp
+```
+
+Current notes:
+
+- This is an infra wiring check only, not an experiment result.
+- Prometheus scrapes `host.docker.internal:8001`, matching `--metrics-port 8001`.
+- Grafana provisions the Prometheus datasource and `QueueLab Reliability Dashboard`.
