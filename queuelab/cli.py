@@ -137,6 +137,10 @@ def run(
         int,
         typer.Option(help="Maximum controlled queued worker crashes to inject."),
     ] = 1,
+    chaos_fail_poison_messages: Annotated[
+        bool,
+        typer.Option(help="Send payloads marked with chaos=poison to dead-letter handling."),
+    ] = False,
     metrics_port: Annotated[
         int | None,
         typer.Option(help="Expose Prometheus metrics on this port."),
@@ -151,6 +155,7 @@ def run(
     chaos_config = ChaosConfig(
         crash_after_db_commit_attempts=chaos_crash_after_db_commit_attempts,
         max_worker_crashes=chaos_max_worker_crashes,
+        fail_poison_messages=chaos_fail_poison_messages,
     )
 
     if backend == "direct":

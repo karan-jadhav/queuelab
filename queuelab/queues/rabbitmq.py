@@ -77,6 +77,9 @@ class RabbitMQBackend:
         _ = reason
         self._channel().basic_reject(delivery_tag=job.delivery_tag, requeue=False)
 
+    def dead_letter(self, job: ReceivedJob, reason: str) -> None:
+        self.fail(job, reason)
+
     def depth(self) -> QueueDepth:
         channel = self._channel()
         main = channel.queue_declare(queue=MAIN_QUEUE, durable=True, passive=True)

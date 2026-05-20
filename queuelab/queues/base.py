@@ -41,6 +41,9 @@ class QueueBackend(Protocol):
     def fail(self, job: ReceivedJob, reason: str) -> None:
         """Mark a received job as failed."""
 
+    def dead_letter(self, job: ReceivedJob, reason: str) -> None:
+        """Move a received job to a terminal dead-letter state."""
+
     def depth(self) -> QueueDepth:
         """Return queue depth information."""
 

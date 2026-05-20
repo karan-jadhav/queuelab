@@ -86,6 +86,20 @@ class SQSBackend:
         _ = reason
         # SQS retry is controlled by visibility timeout and redrive policy.
 
+    def dead_letter(self, job: ReceivedJob, reason: str) -> None:
+        message_body = json.dumps(job.payload, sort_keys=True, separators=(",", ":"))
+        self.client.send_message(
+            QueueUrl=self._dead_queue_url(),
+            MessageBody=message_body,
+            MessageAttributes={
+                "dead_reason": {
+                    "DataType": "String",
+                    "StringValue": reason[:256],
+                }
+            },
+        )
+        self.ack(job)
+
     def depth(self) -> QueueDepth:
         main = self.client.get_queue_attributes(
             QueueUrl=self._main_queue_url(),

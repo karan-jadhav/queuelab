@@ -155,6 +155,23 @@ class PostgresQueueBackend:
             )
         self.connection.commit()
 
+    def dead_letter(self, job: ReceivedJob, reason: str) -> None:
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE pg_queue_jobs
+                SET status = 'dead',
+                    locked_by = NULL,
+                    locked_at = NULL,
+                    finished_at = clock_timestamp(),
+                    error_message = %s
+                WHERE id = %s
+                  AND status = 'leased'
+                """,
+                (reason, job.delivery_tag),
+            )
+        self.connection.commit()
+
     def depth(self) -> QueueDepth:
         with self.connection.cursor() as cursor:
             cursor.execute(

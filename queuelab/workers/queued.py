@@ -42,9 +42,14 @@ class _RunCounters:
 class ChaosConfig:
     crash_after_db_commit_attempts: int = 0
     max_worker_crashes: int = 1
+    fail_poison_messages: bool = False
 
 
 class WorkerCrash(RuntimeError):
+    pass
+
+
+class PoisonMessageError(RuntimeError):
     pass
 
 
@@ -298,6 +303,7 @@ def _process_worker_job(
             received_job=received_job,
             run_id=run_id,
             worker_id=worker_id,
+            chaos_config=chaos_config,
         )
         if inserted:
             status = "success"
@@ -352,6 +358,7 @@ def _process_worker_job(
     except WorkerCrash:
         raise
     except Exception as exc:
+        is_poison = isinstance(exc, PoisonMessageError)
         with lock:
             counters.failed_jobs += 1
         metrics.JOBS_FAILED.labels(
@@ -373,7 +380,10 @@ def _process_worker_job(
             error_message=str(exc),
         )
         connection.commit()
-        queue.fail(received_job, reason=str(exc))
+        if is_poison:
+            queue.dead_letter(received_job, reason=str(exc))
+        else:
+            queue.fail(received_job, reason=str(exc))
 
 
 def _process_received_job(
@@ -382,8 +392,11 @@ def _process_received_job(
     received_job: ReceivedJob,
     run_id: str,
     worker_id: str,
+    chaos_config: ChaosConfig,
 ) -> tuple[bool, int, int]:
     started = perf_counter()
+    if chaos_config.fail_poison_messages and _is_poison_job(received_job.payload):
+        raise PoisonMessageError("poison message requested by payload chaos marker")
     db_started = perf_counter()
     inserted = repository.insert_processed_job(
         run_id=run_id,
@@ -419,7 +432,17 @@ def _chaos_config_dict(chaos_config: ChaosConfig | None) -> dict[str, Any]:
     return {
         "crash_after_db_commit_attempts": chaos_config.crash_after_db_commit_attempts,
         "max_worker_crashes": chaos_config.max_worker_crashes,
+        "fail_poison_messages": chaos_config.fail_poison_messages,
     }
+
+
+def _is_poison_job(job: dict[str, Any]) -> bool:
+    chaos = job.get("chaos")
+    if chaos == "poison":
+        return True
+    if isinstance(chaos, dict):
+        return chaos.get("kind") == "poison"
+    return False
 
 
 def _required_job_id(job: dict[str, Any]) -> str:
