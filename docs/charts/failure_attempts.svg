@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="420" viewBox="0 0 1000 420">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="72" y="36" font-family="sans-serif" font-size="22" font-weight="700">Failure Smoke Attempts</text>
+<text x="72" y="64" font-family="sans-serif" font-size="12" fill="#555">attempts</text>
+<line x1="72" y1="308" x2="968" y2="308" stroke="#222"/>
+<line x1="72" y1="82" x2="72" y2="308" stroke="#222"/>
+<rect x="88.8" y="92.0" width="56.0" height="216.0" fill="#2f6f73"/>
+<text x="116.8" y="84.0" text-anchor="middle" font-family="sans-serif" font-size="11">10000.00</text>
+<text x="116.8" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">postgres</text>
+<text x="116.8" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">postgres-001</text>
+<rect x="178.4" y="92.0" width="56.0" height="216.0" fill="#2f6f73"/>
+<text x="206.4" y="84.0" text-anchor="middle" font-family="sans-serif" font-size="11">10000.00</text>
+<text x="206.4" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">rabbitmq</text>
+<text x="206.4" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">rabbitmq-001</text>
+<rect x="268.0" y="92.0" width="56.0" height="216.0" fill="#2f6f73"/>
+<text x="296.0" y="84.0" text-anchor="middle" font-family="sans-serif" font-size="11">10000.00</text>
+<text x="296.0" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">sqs</text>
+<text x="296.0" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">sqs-001</text>
+<rect x="357.6" y="307.8" width="56.0" height="0.2" fill="#2f6f73"/>
+<text x="385.6" y="299.8" text-anchor="middle" font-family="sans-serif" font-size="11">11.00</text>
+<text x="385.6" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">postgres</text>
+<text x="385.6" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">e2 postgres-crash-unique-001</text>
+<rect x="447.2" y="307.8" width="56.0" height="0.2" fill="#2f6f73"/>
+<text x="475.2" y="299.8" text-anchor="middle" font-family="sans-serif" font-size="11">11.00</text>
+<text x="475.2" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">rabbitmq</text>
+<text x="475.2" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">e2 rabbitmq-crash-unique-001</text>
+<rect x="536.8" y="307.8" width="56.0" height="0.2" fill="#2f6f73"/>
+<text x="564.8" y="299.8" text-anchor="middle" font-family="sans-serif" font-size="11">11.00</text>
+<text x="564.8" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">sqs</text>
+<text x="564.8" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">e2 sqs-crash-unique-001</text>
+<rect x="626.4" y="307.8" width="56.0" height="0.2" fill="#2f6f73"/>
+<text x="654.4" y="299.8" text-anchor="middle" font-family="sans-serif" font-size="11">10.00</text>
+<text x="654.4" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">postgres</text>
+<text x="654.4" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">e4 postgres-poison-001</text>
+<rect x="716.0" y="307.8" width="56.0" height="0.2" fill="#2f6f73"/>
+<text x="744.0" y="299.8" text-anchor="middle" font-family="sans-serif" font-size="11">10.00</text>
+<text x="744.0" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">rabbitmq</text>
+<text x="744.0" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">e4 rabbitmq-poison-001</text>
+<rect x="805.6" y="307.8" width="56.0" height="0.2" fill="#2f6f73"/>
+<text x="833.6" y="299.8" text-anchor="middle" font-family="sans-serif" font-size="11">10.00</text>
+<text x="833.6" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">sqs</text>
+<text x="833.6" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">e4 sqs-poison-001</text>
+<rect x="895.2" y="307.8" width="56.0" height="0.2" fill="#2f6f73"/>
+<text x="923.2" y="299.8" text-anchor="middle" font-family="sans-serif" font-size="11">10.00</text>
+<text x="923.2" y="326" text-anchor="middle" font-family="sans-serif" font-size="10">direct</text>
+<text x="923.2" y="342" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#555">smoke-direct-db-slowdown-001</text>
+</svg>

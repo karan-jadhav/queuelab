@@ -1,0 +1,20 @@
+{
+  "backend": "sqs",
+  "batch_size": 10,
+  "dataset_name": "jobs_10k.jsonl",
+  "dataset_sha256": null,
+  "duplicate_attempts": 0,
+  "duration_seconds": 33.500474,
+  "experiment_id": "exp001_happy_path_10k",
+  "failed_attempts": 0,
+  "finished_at": "2026-05-20T14:40:17.179256+00:00",
+  "job_count_target": 10000,
+  "jobs_per_second": 298.5032390884977,
+  "run_id": "happy-10k-sqs-001",
+  "started_at": "2026-05-20T14:39:43.678782+00:00",
+  "successful_attempts": 10000,
+  "total_attempts": 10000,
+  "unique_attempted_jobs": 10000,
+  "unique_processed_jobs": 10000,
+  "worker_count": 4
+}
