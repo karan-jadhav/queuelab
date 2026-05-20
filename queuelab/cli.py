@@ -1,41 +1,79 @@
-import argparse
+from __future__ import annotations
+
+from datetime import date
+from pathlib import Path
+from typing import Annotated
+
+import typer
 
 from queuelab import __version__
+from queuelab.dataset.download_gharchive import DEFAULT_BASE_URL, download_jobs
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="queuelab",
-        description="Run QueueLab reliability experiments.",
+app = typer.Typer(
+    help="Run QueueLab reliability experiments.",
+    no_args_is_help=True,
+)
+dataset_app = typer.Typer(help="Download and inspect normalized job datasets.")
+report_app = typer.Typer(help="Export and summarize experiment results.")
+
+app.add_typer(dataset_app, name="dataset")
+app.add_typer(report_app, name="report")
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        typer.echo(f"queuelab {__version__}")
+        raise typer.Exit()
+
+
+@app.callback()
+def root(
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            help="Show the installed QueueLab version.",
+            callback=_version_callback,
+            is_eager=True,
+        ),
+    ] = False,
+) -> None:
+    _ = version
+
+
+@dataset_app.command("download")
+def dataset_download(
+    start_date: Annotated[str, typer.Option(help="First GH Archive date to read.")],
+    hours: Annotated[int, typer.Option(help="Number of hourly archives to scan.")],
+    limit: Annotated[int, typer.Option(help="Maximum number of jobs to write.")],
+    out: Annotated[Path, typer.Option(help="Output JSONL path.")],
+    base_url: Annotated[
+        str,
+        typer.Option(help="Base URL or file URI containing GH Archive files."),
+    ] = DEFAULT_BASE_URL,
+) -> None:
+    try:
+        parsed_start_date = date.fromisoformat(start_date)
+    except ValueError as exc:
+        raise typer.BadParameter("expected YYYY-MM-DD") from exc
+
+    count = download_jobs(
+        start_date=parsed_start_date,
+        hours=hours,
+        limit=limit,
+        out=out,
+        base_url=base_url,
     )
-    parser.add_argument(
-        "--version",
-        action="version",
-        version=f"queuelab {__version__}",
-    )
+    typer.echo(f"wrote {count} jobs to {out}")
 
-    subcommands = parser.add_subparsers(dest="command")
 
-    dataset = subcommands.add_parser(
-        "dataset",
-        help="Download and inspect normalized job datasets.",
-    )
-    dataset.add_subparsers(dest="dataset_command")
-
-    subcommands.add_parser(
-        "run",
-        help="Run an experiment backend.",
-    )
-
-    report = subcommands.add_parser(
-        "report",
-        help="Export and summarize experiment results.",
-    )
-    report.add_subparsers(dest="report_command")
-
-    return parser
+@app.command("run")
+def run(
+    backend: Annotated[str, typer.Option(help="Backend to run.")] = "direct",
+) -> None:
+    typer.echo(f"backend {backend!r} is not implemented yet")
 
 
 def main() -> None:
-    parser = build_parser()
-    parser.parse_args()
+    app()

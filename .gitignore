@@ -9,4 +9,7 @@ wheels/
 # Virtual environments
 .venv
 
+# Generated datasets and local experiment output
+data/
+
 opt/
