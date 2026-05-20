@@ -276,3 +276,40 @@ Notes:
 - SQS sends the poison payload to the local DLQ and deletes it from the main queue.
 - Postgres queue marks the leased row `dead`.
 - This smoke check validates terminal poison handling only; it does not measure retry policy behavior.
+
+## EXP-005 DB Slowdown Smoke
+
+Goal: confirm the runner can inject controlled database write delay and record the slower processing path.
+
+Dataset:
+
+- path: `/tmp/queuelab-smoke/jobs_unique_10.jsonl`
+- rows: 10
+- unique job IDs: 10
+
+Run environment:
+
+- backend: direct
+- chaos mode: 25 ms DB delay before each side-effect write
+
+Command:
+
+```bash
+uv run python -m queuelab run \
+  --backend direct \
+  --dataset /tmp/queuelab-smoke/jobs_unique_10.jsonl \
+  --run-id smoke-direct-db-slowdown-001 \
+  --experiment-id exp005_db_slowdown_smoke \
+  --chaos-db-delay-ms 25
+```
+
+Summary:
+
+| backend | run_id | unique_processed_jobs | total_attempts | duplicate_attempts | failed_attempts | duration_seconds | jobs_per_second |
+|---|---|---:|---:|---:|---:|---:|---:|
+| direct | smoke-direct-db-slowdown-001 | 10 | 10 | 0 | 0 | 0.311 | 32.17 |
+
+Notes:
+
+- This validates delay injection and accounting only.
+- Larger DB-delay sweeps should use queued backends and compare visibility/lease behavior.
