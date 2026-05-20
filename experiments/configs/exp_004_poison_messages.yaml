@@ -1,0 +1,18 @@
+experiment_id: exp004_poison_messages
+description: Terminal poison-message handling with DLQ or dead-row behavior.
+dataset:
+  path: data/jobs_10k.jsonl
+  expected_count: 10000
+  poison_count: 10
+run:
+  workers: 4
+  batch_size: 10
+backends:
+  rabbitmq:
+    prefetch_count: 10
+  sqs:
+    wait_seconds: 1
+  postgres:
+    lease_timeout_seconds: 30
+chaos:
+  fail_poison_messages: true

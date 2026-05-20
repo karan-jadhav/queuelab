@@ -1,0 +1,17 @@
+experiment_id: exp001_happy_path_10k
+description: Happy-path comparison for RabbitMQ, SQS, and Postgres queue.
+dataset:
+  path: data/jobs_10k.jsonl
+  expected_count: 10000
+  sha256: 3661a461fbb6ecf2b4d604a1f70063cb11e0d6a1990d85b6a8c09161844d8423
+run:
+  workers: 4
+  batch_size: 10
+backends:
+  rabbitmq:
+    prefetch_count: 10
+  sqs:
+    wait_seconds: 1
+  postgres:
+    lease_timeout_seconds: 30
+chaos: {}

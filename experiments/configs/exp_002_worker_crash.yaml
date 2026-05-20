@@ -1,0 +1,19 @@
+experiment_id: exp002_worker_crash
+description: Crash one worker after the database commit and before queue acknowledgement.
+dataset:
+  path: data/jobs_10k.jsonl
+  expected_count: 10000
+run:
+  workers: 4
+  batch_size: 10
+backends:
+  rabbitmq:
+    prefetch_count: 10
+  sqs:
+    wait_seconds: 1
+    visibility_timeout_seconds: 2
+  postgres:
+    lease_timeout_seconds: 1
+chaos:
+  crash_after_db_commit_attempts: 100
+  max_worker_crashes: 1

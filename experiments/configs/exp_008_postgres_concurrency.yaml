@@ -1,0 +1,16 @@
+experiment_id: exp008_postgres_concurrency
+description: Postgres queue worker-count sweep using SKIP LOCKED.
+dataset:
+  path: data/jobs_10k.jsonl
+  expected_count: 10000
+run:
+  backend: postgres
+  workers:
+    - 1
+    - 4
+    - 8
+    - 16
+  batch_size: 10
+backend:
+  lease_timeout_seconds: 30
+chaos: {}

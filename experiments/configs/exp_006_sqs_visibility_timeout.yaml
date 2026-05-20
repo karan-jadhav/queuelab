@@ -1,0 +1,16 @@
+experiment_id: exp006_sqs_visibility_timeout
+description: Compare SQS visibility timeout behavior under slow database writes.
+dataset:
+  path: data/jobs_10k.jsonl
+  expected_count: 10000
+run:
+  backend: sqs
+  workers: 4
+  batch_size: 10
+backend:
+  wait_seconds: 1
+  visibility_timeout_seconds:
+    - 5
+    - 30
+chaos:
+  db_delay_ms: 250

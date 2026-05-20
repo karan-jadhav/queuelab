@@ -1,0 +1,15 @@
+experiment_id: exp007_rabbitmq_prefetch
+description: RabbitMQ prefetch sweep on the happy path.
+dataset:
+  path: data/jobs_10k.jsonl
+  expected_count: 10000
+run:
+  backend: rabbitmq
+  workers: 4
+  batch_size: 10
+backend:
+  prefetch_count:
+    - 1
+    - 10
+    - 50
+chaos: {}

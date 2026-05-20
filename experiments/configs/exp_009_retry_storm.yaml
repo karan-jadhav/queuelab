@@ -1,0 +1,20 @@
+experiment_id: exp009_retry_storm
+description: Planned transient failure and retry amplification scenario.
+dataset:
+  path: data/jobs_10k.jsonl
+  expected_count: 10000
+run:
+  workers: 4
+  batch_size: 10
+backends:
+  rabbitmq:
+    prefetch_count: 10
+  sqs:
+    wait_seconds: 1
+    visibility_timeout_seconds: 5
+  postgres:
+    lease_timeout_seconds: 5
+chaos:
+  transient_failure_rate: 0.05
+  max_attempts: 3
+status: planned
