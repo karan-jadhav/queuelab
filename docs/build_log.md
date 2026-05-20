@@ -1,6 +1,6 @@
-# Experiment Log
+# Build Log
 
-This log records small reproducible checkpoints while QueueLab is built. It is not a benchmark record yet.
+This log records small reproducible checkpoints while QueueLab is built. It is not an experiment record or benchmark log.
 
 ## Dataset Smoke Check
 
@@ -49,7 +49,7 @@ Summary command:
 uv run python -m queuelab report summarize --run-id dev-direct-2
 ```
 
-Observed summary:
+Observed smoke-check summary:
 
 | metric | value |
 |---|---:|
@@ -65,6 +65,6 @@ Observed summary:
 
 Current notes:
 
-- This is a wiring check only, not a benchmark.
+- This is a wiring check only, not an experiment result or benchmark.
 - The direct backend writes `experiment_runs`, `job_attempts`, and `processed_jobs`.
 - Queue ack/delete behavior is intentionally not present yet.
