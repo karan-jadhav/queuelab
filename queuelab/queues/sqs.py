@@ -20,11 +20,13 @@ class SQSBackend:
         endpoint_url: str | None = None,
         region_name: str | None = None,
         wait_time_seconds: int = 1,
+        visibility_timeout_seconds: int | None = None,
     ) -> None:
         settings = load_settings()
         self.endpoint_url = endpoint_url or settings.sqs_endpoint_url
         self.region_name = region_name or settings.aws_region
         self.wait_time_seconds = wait_time_seconds
+        self.visibility_timeout_seconds = visibility_timeout_seconds
         self.client = boto3.client(
             "sqs",
             endpoint_url=self.endpoint_url,
@@ -61,12 +63,15 @@ class SQSBackend:
                 )
 
     def receive(self, max_messages: int) -> list[ReceivedJob]:
-        response = self.client.receive_message(
-            QueueUrl=self._main_queue_url(),
-            MaxNumberOfMessages=min(max_messages, 10),
-            WaitTimeSeconds=self.wait_time_seconds,
-            AttributeNames=["ApproximateReceiveCount", "SentTimestamp"],
-        )
+        request: dict[str, Any] = {
+            "QueueUrl": self._main_queue_url(),
+            "MaxNumberOfMessages": min(max_messages, 10),
+            "WaitTimeSeconds": self.wait_time_seconds,
+            "AttributeNames": ["ApproximateReceiveCount", "SentTimestamp"],
+        }
+        if self.visibility_timeout_seconds is not None:
+            request["VisibilityTimeout"] = self.visibility_timeout_seconds
+        response = self.client.receive_message(**request)
         messages = response.get("Messages", [])
         return [self._to_received_job(message) for message in messages]
 

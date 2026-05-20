@@ -79,17 +79,24 @@ def run_sqs(
     batch_size: int = 10,
     workers: int = 1,
     wait_time_seconds: int = 1,
+    visibility_timeout_seconds: int | None = None,
     chaos_config: ChaosConfig | None = None,
 ) -> QueuedRunResult:
     return run_queued(
         backend_name="sqs",
-        queue_factory=lambda: SQSBackend(wait_time_seconds=wait_time_seconds),
+        queue_factory=lambda: SQSBackend(
+            wait_time_seconds=wait_time_seconds,
+            visibility_timeout_seconds=visibility_timeout_seconds,
+        ),
         dataset=dataset,
         run_id=run_id,
         experiment_id=experiment_id,
         batch_size=batch_size,
         workers=workers,
-        queue_config={"wait_time_seconds": wait_time_seconds},
+        queue_config={
+            "wait_time_seconds": wait_time_seconds,
+            "visibility_timeout_seconds": visibility_timeout_seconds,
+        },
         chaos_config=chaos_config,
     )
 
@@ -102,6 +109,7 @@ def run_postgres_queue(
     batch_size: int = 10,
     workers: int = 1,
     max_attempts: int = 3,
+    lease_timeout_seconds: int = 30,
     chaos_config: ChaosConfig | None = None,
 ) -> QueuedRunResult:
     return run_queued(
@@ -109,13 +117,17 @@ def run_postgres_queue(
         queue_factory=lambda: PostgresQueueBackend(
             run_id=run_id,
             max_attempts=max_attempts,
+            lease_timeout_seconds=lease_timeout_seconds,
         ),
         dataset=dataset,
         run_id=run_id,
         experiment_id=experiment_id,
         batch_size=batch_size,
         workers=workers,
-        queue_config={"max_attempts": max_attempts},
+        queue_config={
+            "max_attempts": max_attempts,
+            "lease_timeout_seconds": lease_timeout_seconds,
+        },
         chaos_config=chaos_config,
     )
 

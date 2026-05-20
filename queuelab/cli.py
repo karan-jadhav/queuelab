@@ -120,7 +120,15 @@ def run(
     batch_size: Annotated[int, typer.Option(help="Queue receive batch size.")] = 10,
     prefetch_count: Annotated[int, typer.Option(help="RabbitMQ prefetch count.")] = 10,
     sqs_wait_seconds: Annotated[int, typer.Option(help="SQS long polling wait time.")] = 1,
+    sqs_visibility_timeout_seconds: Annotated[
+        int | None,
+        typer.Option(help="SQS per-receive visibility timeout override."),
+    ] = None,
     pg_max_attempts: Annotated[int, typer.Option(help="Postgres queue max attempts.")] = 3,
+    pg_lease_timeout_seconds: Annotated[
+        int,
+        typer.Option(help="Postgres queue leased-message timeout."),
+    ] = 30,
     chaos_crash_after_db_commit_attempts: Annotated[
         int,
         typer.Option(help="Crash a queued worker after this many attempts commit but before ack."),
@@ -183,6 +191,7 @@ def run(
             batch_size=batch_size,
             workers=workers,
             wait_time_seconds=sqs_wait_seconds,
+            visibility_timeout_seconds=sqs_visibility_timeout_seconds,
             chaos_config=chaos_config,
         )
         typer.echo(f"run_id: {sqs_result.run_id}")
@@ -201,6 +210,7 @@ def run(
             batch_size=batch_size,
             workers=workers,
             max_attempts=pg_max_attempts,
+            lease_timeout_seconds=pg_lease_timeout_seconds,
             chaos_config=chaos_config,
         )
         typer.echo(f"run_id: {postgres_result.run_id}")

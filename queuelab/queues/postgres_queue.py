@@ -16,10 +16,12 @@ class PostgresQueueBackend:
         run_id: str,
         worker_name: str | None = None,
         max_attempts: int = 3,
+        lease_timeout_seconds: int = 30,
     ) -> None:
         self.run_id = run_id
         self.worker_name = worker_name or f"pgqueue-{uuid4().hex[:8]}"
         self.max_attempts = max_attempts
+        self.lease_timeout_seconds = lease_timeout_seconds
         self.connection = connect()
 
     def setup(self) -> None:
@@ -72,6 +74,19 @@ class PostgresQueueBackend:
 
     def receive(self, max_messages: int) -> list[ReceivedJob]:
         with self.connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE pg_queue_jobs
+                SET status = 'queued',
+                    locked_by = NULL,
+                    locked_at = NULL,
+                    run_at = clock_timestamp()
+                WHERE run_id = %s
+                  AND status = 'leased'
+                  AND locked_at < clock_timestamp() - make_interval(secs => %s)
+                """,
+                (self.run_id, self.lease_timeout_seconds),
+            )
             cursor.execute(
                 """
                 WITH next_jobs AS (
