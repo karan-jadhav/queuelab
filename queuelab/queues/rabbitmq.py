@@ -45,6 +45,9 @@ class RabbitMQBackend:
         channel.basic_qos(prefetch_count=self.prefetch_count)
 
     def publish(self, job: JobPayload) -> None:
+        self._publish(job, headers={})
+
+    def _publish(self, job: JobPayload, headers: dict[str, object]) -> None:
         self._channel().basic_publish(
             exchange=EXCHANGE,
             routing_key=ROUTING_KEY,
@@ -52,6 +55,7 @@ class RabbitMQBackend:
             properties=BasicProperties(
                 content_type="application/json",
                 delivery_mode=2,
+                headers=headers,
             ),
             mandatory=True,
         )
@@ -75,10 +79,15 @@ class RabbitMQBackend:
 
     def fail(self, job: ReceivedJob, reason: str) -> None:
         _ = reason
-        self._channel().basic_reject(delivery_tag=job.delivery_tag, requeue=False)
+        self._publish(
+            job.payload,
+            headers={"x-queuelab-attempt": job.attempt_no + 1},
+        )
+        self._channel().basic_ack(delivery_tag=job.delivery_tag)
 
     def dead_letter(self, job: ReceivedJob, reason: str) -> None:
-        self.fail(job, reason)
+        _ = reason
+        self._channel().basic_reject(delivery_tag=job.delivery_tag, requeue=False)
 
     def depth(self) -> QueueDepth:
         channel = self._channel()
@@ -112,14 +121,17 @@ class RabbitMQBackend:
         payload = json.loads(body)
         if not isinstance(payload, dict):
             raise ValueError("RabbitMQ payload must be a JSON object")
+        headers = properties.headers or {}
+        attempt_no = int(headers.get("x-queuelab-attempt", 1))
         return ReceivedJob(
             payload=payload,
             delivery_tag=method.delivery_tag,
-            attempt_no=1,
+            attempt_no=attempt_no,
             meta={
                 "redelivered": method.redelivered,
                 "exchange": method.exchange,
                 "routing_key": method.routing_key,
                 "content_type": properties.content_type,
+                "attempt_no": attempt_no,
             },
         )

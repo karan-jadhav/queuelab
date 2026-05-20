@@ -9,6 +9,7 @@ dependencies = [
     "pika>=1.4.0",
     "prometheus-client>=0.25.0",
     "psycopg[binary]>=3.3.4",
+    "pyyaml>=6.0.3",
     "typer>=0.25.1",
 ]
 

@@ -36,6 +36,7 @@ class _RunCounters:
     failed_jobs: int = 0
     crashed_workers: int = 0
     chaos_crashes_triggered: int = 0
+    transient_failures_triggered: int = 0
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,8 @@ class ChaosConfig:
     max_worker_crashes: int = 1
     fail_poison_messages: bool = False
     db_delay_ms: int = 0
+    transient_failure_rate: float = 0
+    transient_failure_max_attempts: int = 3
 
 
 class WorkerCrash(RuntimeError):
@@ -51,6 +54,10 @@ class WorkerCrash(RuntimeError):
 
 
 class PoisonMessageError(RuntimeError):
+    pass
+
+
+class TransientJobError(RuntimeError):
     pass
 
 
@@ -239,7 +246,11 @@ def _run_worker(
             repository = ExperimentRepository(connection)
             while True:
                 with lock:
-                    target_attempts = job_count + counters.chaos_crashes_triggered
+                    target_attempts = (
+                        job_count
+                        + counters.chaos_crashes_triggered
+                        + counters.transient_failures_triggered
+                    )
                     remaining = target_attempts - counters.total_attempts - counters.reserved_attempts
                     if remaining <= 0:
                         return
@@ -360,6 +371,7 @@ def _process_worker_job(
         raise
     except Exception as exc:
         is_poison = isinstance(exc, PoisonMessageError)
+        is_transient = isinstance(exc, TransientJobError)
         with lock:
             counters.failed_jobs += 1
         metrics.JOBS_FAILED.labels(
@@ -384,6 +396,9 @@ def _process_worker_job(
         if is_poison:
             queue.dead_letter(received_job, reason=str(exc))
         else:
+            if is_transient:
+                with lock:
+                    counters.transient_failures_triggered += 1
             queue.fail(received_job, reason=str(exc))
 
 
@@ -398,6 +413,8 @@ def _process_received_job(
     started = perf_counter()
     if chaos_config.fail_poison_messages and _is_poison_job(received_job.payload):
         raise PoisonMessageError("poison message requested by payload chaos marker")
+    if _should_transient_fail(received_job, chaos_config):
+        raise TransientJobError("transient failure requested by chaos configuration")
     db_started = perf_counter()
     _sleep_ms(chaos_config.db_delay_ms)
     inserted = repository.insert_processed_job(
@@ -436,6 +453,8 @@ def _chaos_config_dict(chaos_config: ChaosConfig | None) -> dict[str, Any]:
         "max_worker_crashes": chaos_config.max_worker_crashes,
         "fail_poison_messages": chaos_config.fail_poison_messages,
         "db_delay_ms": chaos_config.db_delay_ms,
+        "transient_failure_rate": chaos_config.transient_failure_rate,
+        "transient_failure_max_attempts": chaos_config.transient_failure_max_attempts,
     }
 
 
@@ -446,6 +465,19 @@ def _is_poison_job(job: dict[str, Any]) -> bool:
     if isinstance(chaos, dict):
         return chaos.get("kind") == "poison"
     return False
+
+
+def _should_transient_fail(
+    received_job: ReceivedJob,
+    chaos_config: ChaosConfig,
+) -> bool:
+    if chaos_config.transient_failure_rate <= 0:
+        return False
+    if received_job.attempt_no >= chaos_config.transient_failure_max_attempts:
+        return False
+    job_id = _required_job_id(received_job.payload)
+    bucket = int(hashlib.sha256(job_id.encode()).hexdigest()[:8], 16) / 0xFFFFFFFF
+    return bucket < chaos_config.transient_failure_rate
 
 
 def _required_job_id(job: dict[str, Any]) -> str:

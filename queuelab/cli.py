@@ -9,6 +9,7 @@ import typer
 from queuelab import __version__
 from queuelab.dataset.download_gharchive import DEFAULT_BASE_URL, download_jobs
 from queuelab.dataset.inspect import inspect_dataset
+from queuelab.experiments.runner import build_run_specs, run_experiment_config
 from queuelab.metrics import start_metrics_server
 from queuelab.reporting.charts import generate_charts
 from queuelab.reporting.export import export_summaries
@@ -27,9 +28,11 @@ app = typer.Typer(
 )
 dataset_app = typer.Typer(help="Download and inspect normalized job datasets.")
 report_app = typer.Typer(help="Export and summarize experiment results.")
+experiment_app = typer.Typer(help="Run YAML experiment configs.")
 
 app.add_typer(dataset_app, name="dataset")
 app.add_typer(report_app, name="report")
+app.add_typer(experiment_app, name="experiment")
 
 
 def _version_callback(value: bool) -> None:
@@ -132,6 +135,28 @@ def report_charts(
         typer.echo(f"wrote {path}")
 
 
+@experiment_app.command("plan")
+def experiment_plan(
+    config: Annotated[Path, typer.Argument(help="Experiment YAML config.")],
+    run_prefix: Annotated[str | None, typer.Option(help="Run ID prefix override.")] = None,
+) -> None:
+    for spec in build_run_specs(config, run_prefix=run_prefix):
+        typer.echo(
+            f"{spec.run_id}: backend={spec.backend} workers={spec.workers} "
+            f"batch_size={spec.batch_size}"
+        )
+
+
+@experiment_app.command("run")
+def experiment_run(
+    config: Annotated[Path, typer.Argument(help="Experiment YAML config.")],
+    run_prefix: Annotated[str | None, typer.Option(help="Run ID prefix override.")] = None,
+) -> None:
+    run_ids = run_experiment_config(config, run_prefix=run_prefix)
+    for run_id in run_ids:
+        typer.echo(f"completed {run_id}")
+
+
 @app.command("run")
 def run(
     backend: Annotated[str, typer.Option(help="Backend to run.")] = "direct",
@@ -167,6 +192,14 @@ def run(
         int,
         typer.Option(help="Sleep this many milliseconds before each DB side-effect write."),
     ] = 0,
+    chaos_transient_failure_rate: Annotated[
+        float,
+        typer.Option(help="Deterministic transient failure rate from 0.0 to 1.0."),
+    ] = 0,
+    chaos_transient_failure_max_attempts: Annotated[
+        int,
+        typer.Option(help="Attempt number at which transient failures stop."),
+    ] = 3,
     metrics_port: Annotated[
         int | None,
         typer.Option(help="Expose Prometheus metrics on this port."),
@@ -183,6 +216,8 @@ def run(
         max_worker_crashes=chaos_max_worker_crashes,
         fail_poison_messages=chaos_fail_poison_messages,
         db_delay_ms=chaos_db_delay_ms,
+        transient_failure_rate=chaos_transient_failure_rate,
+        transient_failure_max_attempts=chaos_transient_failure_max_attempts,
     )
 
     if backend == "direct":
