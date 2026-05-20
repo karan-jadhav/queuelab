@@ -23,17 +23,32 @@ def summarize_run(run_id: str) -> dict[str, Any]:
                   r.started_at,
                   r.finished_at,
                   EXTRACT(EPOCH FROM (r.finished_at - r.started_at)) AS duration_seconds,
-                  count(a.id) AS total_attempts,
-                  count(DISTINCT a.job_id) AS unique_attempted_jobs,
-                  count(*) FILTER (WHERE a.status = 'success') AS successful_attempts,
-                  count(*) FILTER (WHERE a.status = 'duplicate') AS duplicate_attempts,
-                  count(*) FILTER (WHERE a.status = 'failed') AS failed_attempts,
-                  count(DISTINCT p.job_id) AS unique_processed_jobs
+                  COALESCE(a.total_attempts, 0) AS total_attempts,
+                  COALESCE(a.unique_attempted_jobs, 0) AS unique_attempted_jobs,
+                  COALESCE(a.successful_attempts, 0) AS successful_attempts,
+                  COALESCE(a.duplicate_attempts, 0) AS duplicate_attempts,
+                  COALESCE(a.failed_attempts, 0) AS failed_attempts,
+                  COALESCE(p.unique_processed_jobs, 0) AS unique_processed_jobs
                 FROM experiment_runs r
-                LEFT JOIN job_attempts a ON a.run_id = r.run_id
-                LEFT JOIN processed_jobs p ON p.run_id = r.run_id
+                LEFT JOIN (
+                  SELECT
+                    run_id,
+                    count(*) AS total_attempts,
+                    count(DISTINCT job_id) AS unique_attempted_jobs,
+                    count(*) FILTER (WHERE status = 'success') AS successful_attempts,
+                    count(*) FILTER (WHERE status = 'duplicate') AS duplicate_attempts,
+                    count(*) FILTER (WHERE status = 'failed') AS failed_attempts
+                  FROM job_attempts
+                  GROUP BY run_id
+                ) a ON a.run_id = r.run_id
+                LEFT JOIN (
+                  SELECT
+                    run_id,
+                    count(DISTINCT job_id) AS unique_processed_jobs
+                  FROM processed_jobs
+                  GROUP BY run_id
+                ) p ON p.run_id = r.run_id
                 WHERE r.run_id = %s
-                GROUP BY r.run_id
                 """,
                 (run_id,),
             )
