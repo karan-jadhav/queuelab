@@ -7,12 +7,13 @@ import gzip
 import hashlib
 import json
 from pathlib import Path
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 from queuelab.dataset.schema import JobValidationError, normalize_event
 
 
 DEFAULT_BASE_URL = "https://data.gharchive.org"
+USER_AGENT = "QueueLab/0.1 (+https://github.com/)"
 
 
 @dataclass(frozen=True)
@@ -72,7 +73,8 @@ def iter_archive_urls(
 
 
 def stream_archive_events(url: str) -> Iterable[dict[str, object]]:
-    with urlopen(url) as response:
+    request = Request(url, headers={"User-Agent": USER_AGENT})
+    with urlopen(request) as response:
         with gzip.GzipFile(fileobj=response) as gz:
             for raw_line in gz:
                 if not raw_line.strip():
