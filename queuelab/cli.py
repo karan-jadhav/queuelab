@@ -16,7 +16,7 @@ from queuelab.reporting.summarize import (
     summary_to_markdown,
 )
 from queuelab.workers.direct import run_direct
-from queuelab.workers.queued import run_postgres_queue, run_rabbitmq, run_sqs
+from queuelab.workers.queued import ChaosConfig, run_postgres_queue, run_rabbitmq, run_sqs
 
 
 app = typer.Typer(
@@ -121,6 +121,14 @@ def run(
     prefetch_count: Annotated[int, typer.Option(help="RabbitMQ prefetch count.")] = 10,
     sqs_wait_seconds: Annotated[int, typer.Option(help="SQS long polling wait time.")] = 1,
     pg_max_attempts: Annotated[int, typer.Option(help="Postgres queue max attempts.")] = 3,
+    chaos_crash_after_db_commit_attempts: Annotated[
+        int,
+        typer.Option(help="Crash a queued worker after this many attempts commit but before ack."),
+    ] = 0,
+    chaos_max_worker_crashes: Annotated[
+        int,
+        typer.Option(help="Maximum controlled queued worker crashes to inject."),
+    ] = 1,
     metrics_port: Annotated[
         int | None,
         typer.Option(help="Expose Prometheus metrics on this port."),
@@ -132,6 +140,10 @@ def run(
         raise typer.BadParameter("--run-id is required")
 
     start_metrics_server(metrics_port)
+    chaos_config = ChaosConfig(
+        crash_after_db_commit_attempts=chaos_crash_after_db_commit_attempts,
+        max_worker_crashes=chaos_max_worker_crashes,
+    )
 
     if backend == "direct":
         direct_result = run_direct(
@@ -153,6 +165,7 @@ def run(
             batch_size=batch_size,
             prefetch_count=prefetch_count,
             workers=workers,
+            chaos_config=chaos_config,
         )
         typer.echo(f"run_id: {rabbitmq_result.run_id}")
         typer.echo(f"backend: {rabbitmq_result.backend}")
@@ -170,6 +183,7 @@ def run(
             batch_size=batch_size,
             workers=workers,
             wait_time_seconds=sqs_wait_seconds,
+            chaos_config=chaos_config,
         )
         typer.echo(f"run_id: {sqs_result.run_id}")
         typer.echo(f"backend: {sqs_result.backend}")
@@ -187,6 +201,7 @@ def run(
             batch_size=batch_size,
             workers=workers,
             max_attempts=pg_max_attempts,
+            chaos_config=chaos_config,
         )
         typer.echo(f"run_id: {postgres_result.run_id}")
         typer.echo(f"backend: {postgres_result.backend}")

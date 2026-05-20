@@ -34,6 +34,18 @@ class _RunCounters:
     processed_jobs: int = 0
     duplicate_jobs: int = 0
     failed_jobs: int = 0
+    crashed_workers: int = 0
+    chaos_crashes_triggered: int = 0
+
+
+@dataclass(frozen=True)
+class ChaosConfig:
+    crash_after_db_commit_attempts: int = 0
+    max_worker_crashes: int = 1
+
+
+class WorkerCrash(RuntimeError):
+    pass
 
 
 def run_rabbitmq(
@@ -44,6 +56,7 @@ def run_rabbitmq(
     batch_size: int = 10,
     prefetch_count: int = 10,
     workers: int = 1,
+    chaos_config: ChaosConfig | None = None,
 ) -> QueuedRunResult:
     return run_queued(
         backend_name="rabbitmq",
@@ -54,6 +67,7 @@ def run_rabbitmq(
         batch_size=batch_size,
         workers=workers,
         queue_config={"prefetch_count": prefetch_count},
+        chaos_config=chaos_config,
     )
 
 
@@ -65,6 +79,7 @@ def run_sqs(
     batch_size: int = 10,
     workers: int = 1,
     wait_time_seconds: int = 1,
+    chaos_config: ChaosConfig | None = None,
 ) -> QueuedRunResult:
     return run_queued(
         backend_name="sqs",
@@ -75,6 +90,7 @@ def run_sqs(
         batch_size=batch_size,
         workers=workers,
         queue_config={"wait_time_seconds": wait_time_seconds},
+        chaos_config=chaos_config,
     )
 
 
@@ -86,6 +102,7 @@ def run_postgres_queue(
     batch_size: int = 10,
     workers: int = 1,
     max_attempts: int = 3,
+    chaos_config: ChaosConfig | None = None,
 ) -> QueuedRunResult:
     return run_queued(
         backend_name="postgres",
@@ -99,6 +116,7 @@ def run_postgres_queue(
         batch_size=batch_size,
         workers=workers,
         queue_config={"max_attempts": max_attempts},
+        chaos_config=chaos_config,
     )
 
 
@@ -112,6 +130,7 @@ def run_queued(
     batch_size: int,
     workers: int,
     queue_config: dict[str, Any] | None = None,
+    chaos_config: ChaosConfig | None = None,
 ) -> QueuedRunResult:
     if workers < 1:
         raise ValueError("workers must be at least 1")
@@ -141,6 +160,7 @@ def run_queued(
                 worker_count=workers,
                 batch_size=batch_size,
                 queue_config=queue_config or {},
+                chaos_config=_chaos_config_dict(chaos_config),
             )
         )
         connection.commit()
@@ -157,6 +177,7 @@ def run_queued(
                 "job_count": job_count,
                 "counters": counters,
                 "lock": lock,
+                "chaos_config": chaos_config or ChaosConfig(),
             },
         )
         for worker_index in range(workers)
@@ -191,6 +212,7 @@ def _run_worker(
     job_count: int,
     counters: _RunCounters,
     lock: Lock,
+    chaos_config: ChaosConfig,
 ) -> None:
     queue = queue_factory()
     try:
@@ -199,7 +221,8 @@ def _run_worker(
             repository = ExperimentRepository(connection)
             while True:
                 with lock:
-                    remaining = job_count - counters.total_attempts - counters.reserved_attempts
+                    target_attempts = job_count + counters.chaos_crashes_triggered
+                    remaining = target_attempts - counters.total_attempts - counters.reserved_attempts
                     if remaining <= 0:
                         return
                     receive_limit = min(batch_size, remaining)
@@ -216,92 +239,129 @@ def _run_worker(
                     with lock:
                         counters.reserved_attempts -= receive_limit - len(received_jobs)
 
-                for received_job in received_jobs:
-                    metrics.JOBS_RECEIVED.labels(run_id=run_id, backend=backend_name).inc()
-                    with lock:
-                        counters.total_attempts += 1
-                        counters.reserved_attempts -= 1
-
-                    try:
-                        inserted, processing_ms, db_write_ms = _process_received_job(
+                try:
+                    for index, received_job in enumerate(received_jobs):
+                        _process_worker_job(
+                            backend_name=backend_name,
+                            queue=queue,
                             repository=repository,
+                            connection=connection,
                             received_job=received_job,
                             run_id=run_id,
                             worker_id=worker_id,
+                            counters=counters,
+                            lock=lock,
+                            chaos_config=chaos_config,
                         )
-                        if inserted:
-                            status = "success"
-                            with lock:
-                                counters.processed_jobs += 1
-                            metrics.JOBS_PROCESSED.labels(
-                                run_id=run_id,
-                                backend=backend_name,
-                            ).inc()
-                        else:
-                            status = "duplicate"
-                            with lock:
-                                counters.duplicate_jobs += 1
-                            metrics.JOBS_DUPLICATE.labels(
-                                run_id=run_id,
-                                backend=backend_name,
-                            ).inc()
-
-                        metrics.DB_WRITE_SECONDS.labels(
-                            run_id=run_id,
-                            backend=backend_name,
-                        ).observe(db_write_ms / 1000)
-                        metrics.JOB_PROCESSING_SECONDS.labels(
-                            run_id=run_id,
-                            backend=backend_name,
-                        ).observe(processing_ms / 1000)
-
-                        repository.record_attempt(
-                            run_id=run_id,
-                            job_id=_required_job_id(received_job.payload),
-                            backend=backend_name,
-                            worker_id=worker_id,
-                            attempt_no=received_job.attempt_no,
-                            status=status,
-                            processing_ms=processing_ms,
-                            db_write_ms=db_write_ms,
-                            message_meta=received_job.meta,
-                        )
-                        connection.commit()
-                        ack_started = perf_counter()
-                        queue.ack(received_job)
-                        metrics.QUEUE_ACK_SECONDS.labels(
-                            run_id=run_id,
-                            backend=backend_name,
-                        ).observe(_elapsed_seconds(ack_started))
-                        metrics.JOBS_ACKED.labels(
-                            run_id=run_id,
-                            backend=backend_name,
-                        ).inc()
-                    except Exception as exc:
-                        with lock:
-                            counters.failed_jobs += 1
-                        metrics.JOBS_FAILED.labels(
-                            run_id=run_id,
-                            backend=backend_name,
-                            error_type=type(exc).__name__,
-                        ).inc()
-                        repository.record_attempt(
-                            run_id=run_id,
-                            job_id=_best_effort_job_id(received_job),
-                            backend=backend_name,
-                            worker_id=worker_id,
-                            attempt_no=received_job.attempt_no,
-                            status="failed",
-                            processing_ms=0,
-                            db_write_ms=0,
-                            message_meta=received_job.meta,
-                            error_type=type(exc).__name__,
-                            error_message=str(exc),
-                        )
-                        connection.commit()
-                        queue.fail(received_job, reason=str(exc))
+                except WorkerCrash:
+                    with lock:
+                        counters.crashed_workers += 1
+                        counters.reserved_attempts -= len(received_jobs) - index - 1
+                    return
     finally:
         queue.close()
+
+
+def _process_worker_job(
+    *,
+    backend_name: str,
+    queue: QueueBackend,
+    repository: ExperimentRepository,
+    connection: Any,
+    received_job: ReceivedJob,
+    run_id: str,
+    worker_id: str,
+    counters: _RunCounters,
+    lock: Lock,
+    chaos_config: ChaosConfig,
+) -> None:
+    metrics.JOBS_RECEIVED.labels(run_id=run_id, backend=backend_name).inc()
+    with lock:
+        counters.total_attempts += 1
+        counters.reserved_attempts -= 1
+
+    try:
+        inserted, processing_ms, db_write_ms = _process_received_job(
+            repository=repository,
+            received_job=received_job,
+            run_id=run_id,
+            worker_id=worker_id,
+        )
+        if inserted:
+            status = "success"
+            with lock:
+                counters.processed_jobs += 1
+            metrics.JOBS_PROCESSED.labels(
+                run_id=run_id,
+                backend=backend_name,
+            ).inc()
+        else:
+            status = "duplicate"
+            with lock:
+                counters.duplicate_jobs += 1
+            metrics.JOBS_DUPLICATE.labels(
+                run_id=run_id,
+                backend=backend_name,
+            ).inc()
+
+        metrics.DB_WRITE_SECONDS.labels(
+            run_id=run_id,
+            backend=backend_name,
+        ).observe(db_write_ms / 1000)
+        metrics.JOB_PROCESSING_SECONDS.labels(
+            run_id=run_id,
+            backend=backend_name,
+        ).observe(processing_ms / 1000)
+
+        repository.record_attempt(
+            run_id=run_id,
+            job_id=_required_job_id(received_job.payload),
+            backend=backend_name,
+            worker_id=worker_id,
+            attempt_no=received_job.attempt_no,
+            status=status,
+            processing_ms=processing_ms,
+            db_write_ms=db_write_ms,
+            message_meta=received_job.meta,
+        )
+        connection.commit()
+        if _should_crash_after_db_commit(counters, lock, chaos_config):
+            raise WorkerCrash("controlled crash after db commit before ack")
+        ack_started = perf_counter()
+        queue.ack(received_job)
+        metrics.QUEUE_ACK_SECONDS.labels(
+            run_id=run_id,
+            backend=backend_name,
+        ).observe(_elapsed_seconds(ack_started))
+        metrics.JOBS_ACKED.labels(
+            run_id=run_id,
+            backend=backend_name,
+        ).inc()
+    except WorkerCrash:
+        raise
+    except Exception as exc:
+        with lock:
+            counters.failed_jobs += 1
+        metrics.JOBS_FAILED.labels(
+            run_id=run_id,
+            backend=backend_name,
+            error_type=type(exc).__name__,
+        ).inc()
+        repository.record_attempt(
+            run_id=run_id,
+            job_id=_best_effort_job_id(received_job),
+            backend=backend_name,
+            worker_id=worker_id,
+            attempt_no=received_job.attempt_no,
+            status="failed",
+            processing_ms=0,
+            db_write_ms=0,
+            message_meta=received_job.meta,
+            error_type=type(exc).__name__,
+            error_message=str(exc),
+        )
+        connection.commit()
+        queue.fail(received_job, reason=str(exc))
 
 
 def _process_received_job(
@@ -322,6 +382,32 @@ def _process_received_job(
     db_write_ms = _elapsed_ms(db_started)
     processing_ms = _elapsed_ms(started)
     return inserted, processing_ms, db_write_ms
+
+
+def _should_crash_after_db_commit(
+    counters: _RunCounters,
+    lock: Lock,
+    chaos_config: ChaosConfig,
+) -> bool:
+    if chaos_config.crash_after_db_commit_attempts < 1:
+        return False
+    with lock:
+        should_crash = (
+            counters.total_attempts >= chaos_config.crash_after_db_commit_attempts
+            and counters.chaos_crashes_triggered < chaos_config.max_worker_crashes
+        )
+        if should_crash:
+            counters.chaos_crashes_triggered += 1
+        return should_crash
+
+
+def _chaos_config_dict(chaos_config: ChaosConfig | None) -> dict[str, Any]:
+    if chaos_config is None:
+        return {}
+    return {
+        "crash_after_db_commit_attempts": chaos_config.crash_after_db_commit_attempts,
+        "max_worker_crashes": chaos_config.max_worker_crashes,
+    }
 
 
 def _required_job_id(job: dict[str, Any]) -> str:
