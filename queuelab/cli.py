@@ -9,6 +9,7 @@ import typer
 from queuelab import __version__
 from queuelab.dataset.download_gharchive import DEFAULT_BASE_URL, download_jobs
 from queuelab.dataset.inspect import inspect_dataset
+from queuelab.metrics import start_metrics_server
 from queuelab.reporting.summarize import (
     summarize_run,
     summary_to_json,
@@ -118,11 +119,17 @@ def run(
     workers: Annotated[int, typer.Option(help="Number of workers to run.")] = 1,
     batch_size: Annotated[int, typer.Option(help="Queue receive batch size.")] = 10,
     prefetch_count: Annotated[int, typer.Option(help="RabbitMQ prefetch count.")] = 10,
+    metrics_port: Annotated[
+        int | None,
+        typer.Option(help="Expose Prometheus metrics on this port."),
+    ] = None,
 ) -> None:
     if dataset is None:
         raise typer.BadParameter("--dataset is required")
     if run_id is None:
         raise typer.BadParameter("--run-id is required")
+
+    start_metrics_server(metrics_port)
 
     if backend == "direct":
         direct_result = run_direct(

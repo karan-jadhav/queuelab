@@ -8,6 +8,7 @@ from time import perf_counter, sleep
 from threading import Lock, Thread
 from typing import Any
 
+from queuelab import metrics
 from queuelab.db import ExperimentRepository, ExperimentRun, connect
 from queuelab.queues.base import QueueBackend, ReceivedJob
 from queuelab.queues.rabbitmq import RabbitMQBackend
@@ -75,7 +76,9 @@ def run_queued(
     queue = queue_factory()
     try:
         queue.setup()
-        queue.publish_batch(list(_iter_jobs(dataset)))
+        jobs = list(_iter_jobs(dataset))
+        queue.publish_batch(jobs)
+        metrics.JOBS_PUBLISHED.labels(run_id=run_id, backend=backend_name).inc(len(jobs))
     finally:
         queue.close()
 
@@ -167,6 +170,7 @@ def _run_worker(
                         counters.reserved_attempts -= receive_limit - len(received_jobs)
 
                 for received_job in received_jobs:
+                    metrics.JOBS_RECEIVED.labels(run_id=run_id, backend=backend_name).inc()
                     with lock:
                         counters.total_attempts += 1
                         counters.reserved_attempts -= 1
@@ -182,10 +186,27 @@ def _run_worker(
                             status = "success"
                             with lock:
                                 counters.processed_jobs += 1
+                            metrics.JOBS_PROCESSED.labels(
+                                run_id=run_id,
+                                backend=backend_name,
+                            ).inc()
                         else:
                             status = "duplicate"
                             with lock:
                                 counters.duplicate_jobs += 1
+                            metrics.JOBS_DUPLICATE.labels(
+                                run_id=run_id,
+                                backend=backend_name,
+                            ).inc()
+
+                        metrics.DB_WRITE_SECONDS.labels(
+                            run_id=run_id,
+                            backend=backend_name,
+                        ).observe(db_write_ms / 1000)
+                        metrics.JOB_PROCESSING_SECONDS.labels(
+                            run_id=run_id,
+                            backend=backend_name,
+                        ).observe(processing_ms / 1000)
 
                         repository.record_attempt(
                             run_id=run_id,
@@ -199,10 +220,24 @@ def _run_worker(
                             message_meta=received_job.meta,
                         )
                         connection.commit()
+                        ack_started = perf_counter()
                         queue.ack(received_job)
+                        metrics.QUEUE_ACK_SECONDS.labels(
+                            run_id=run_id,
+                            backend=backend_name,
+                        ).observe(_elapsed_seconds(ack_started))
+                        metrics.JOBS_ACKED.labels(
+                            run_id=run_id,
+                            backend=backend_name,
+                        ).inc()
                     except Exception as exc:
                         with lock:
                             counters.failed_jobs += 1
+                        metrics.JOBS_FAILED.labels(
+                            run_id=run_id,
+                            backend=backend_name,
+                            error_type=type(exc).__name__,
+                        ).inc()
                         repository.record_attempt(
                             run_id=run_id,
                             job_id=_best_effort_job_id(received_job),
@@ -263,3 +298,7 @@ def _result_hash(job: dict[str, Any]) -> str:
 
 def _elapsed_ms(started: float) -> int:
     return int((perf_counter() - started) * 1000)
+
+
+def _elapsed_seconds(started: float) -> float:
+    return perf_counter() - started

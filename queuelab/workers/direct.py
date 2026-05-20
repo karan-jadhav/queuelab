@@ -8,6 +8,7 @@ from time import perf_counter
 from typing import Any
 
 from queuelab.db import ExperimentRepository, ExperimentRun, connect
+from queuelab import metrics
 
 
 @dataclass(frozen=True)
@@ -61,9 +62,19 @@ def run_direct(
             if inserted:
                 processed_jobs += 1
                 status = "success"
+                metrics.JOBS_PROCESSED.labels(run_id=run_id, backend="direct").inc()
             else:
                 duplicate_jobs += 1
                 status = "duplicate"
+                metrics.JOBS_DUPLICATE.labels(run_id=run_id, backend="direct").inc()
+
+            metrics.JOBS_RECEIVED.labels(run_id=run_id, backend="direct").inc()
+            metrics.DB_WRITE_SECONDS.labels(run_id=run_id, backend="direct").observe(
+                db_write_ms / 1000
+            )
+            metrics.JOB_PROCESSING_SECONDS.labels(run_id=run_id, backend="direct").observe(
+                processing_ms / 1000
+            )
 
             repository.record_attempt(
                 run_id=run_id,
@@ -75,6 +86,7 @@ def run_direct(
                 processing_ms=processing_ms,
                 db_write_ms=db_write_ms,
             )
+            metrics.JOBS_ACKED.labels(run_id=run_id, backend="direct").inc()
 
         repository.finish_run(run_id)
         connection.commit()
