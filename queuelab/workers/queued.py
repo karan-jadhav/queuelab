@@ -12,6 +12,7 @@ from queuelab import metrics
 from queuelab.db import ExperimentRepository, ExperimentRun, connect
 from queuelab.queues.base import QueueBackend, ReceivedJob
 from queuelab.queues.rabbitmq import RabbitMQBackend
+from queuelab.queues.sqs import SQSBackend
 from queuelab.workers.direct import _count_lines, _iter_jobs
 
 
@@ -52,6 +53,27 @@ def run_rabbitmq(
         batch_size=batch_size,
         workers=workers,
         queue_config={"prefetch_count": prefetch_count},
+    )
+
+
+def run_sqs(
+    *,
+    dataset: Path,
+    run_id: str,
+    experiment_id: str = "dev_sqs",
+    batch_size: int = 10,
+    workers: int = 1,
+    wait_time_seconds: int = 1,
+) -> QueuedRunResult:
+    return run_queued(
+        backend_name="sqs",
+        queue_factory=lambda: SQSBackend(wait_time_seconds=wait_time_seconds),
+        dataset=dataset,
+        run_id=run_id,
+        experiment_id=experiment_id,
+        batch_size=batch_size,
+        workers=workers,
+        queue_config={"wait_time_seconds": wait_time_seconds},
     )
 
 
