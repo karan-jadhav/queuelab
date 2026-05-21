@@ -1,6 +1,6 @@
 [project]
 name = "queuelab"
-version = "0.2.0"
+version = "0.2.1"
 description = "Queue backend reliability experiments for RabbitMQ, SQS, and Postgres queues"
 readme = "README.md"
 requires-python = ">=3.13"

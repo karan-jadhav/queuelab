@@ -135,6 +135,8 @@ Retry storm smoke on 1K jobs:
 | SQS | 1108 | 108 | 1.108 |
 | Postgres queue | 1108 | 108 | 1.108 |
 
+Poison experiments do not require manually editing JSONL. If an experiment config includes `dataset.poison_count`, the runner creates an ignored derived dataset under `.queuelab/generated/experiments/` and marks the final N rows with `chaos: "poison"`.
+
 ## Docs
 
 - [Architecture](docs/architecture.md)

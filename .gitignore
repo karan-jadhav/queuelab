@@ -11,5 +11,6 @@ wheels/
 
 # Generated datasets and local experiment output
 data/
+.queuelab/
 
 opt/

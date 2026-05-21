@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
 from typing import Any
 
@@ -31,7 +32,12 @@ def load_experiment_config(path: Path) -> dict[str, Any]:
 def build_run_specs(path: Path, *, run_prefix: str | None = None) -> list[ExperimentRunSpec]:
     config = load_experiment_config(path)
     experiment_id = _required_str(config, "experiment_id")
-    dataset_path = Path(_required_mapping(config, "dataset")["path"])
+    dataset_config = _required_mapping(config, "dataset")
+    dataset_path = _prepare_dataset(
+        dataset_config=dataset_config,
+        experiment_id=experiment_id,
+        run_prefix=run_prefix,
+    )
     run_config = _required_mapping(config, "run")
     workers_values = _as_list(run_config.get("workers", 1))
     batch_size_values = _as_list(run_config.get("batch_size", 10))
@@ -127,6 +133,50 @@ def _backend_options(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
     if not backend:
         raise ValueError("config must contain backends or run.backend")
     return {backend: _mapping(config.get("backend"))}
+
+
+def _prepare_dataset(
+    *,
+    dataset_config: dict[str, Any],
+    experiment_id: str,
+    run_prefix: str | None,
+) -> Path:
+    dataset_path = Path(dataset_config["path"])
+    poison_count = int(dataset_config.get("poison_count", 0) or 0)
+    if poison_count < 1:
+        return dataset_path
+    return _write_poison_dataset(
+        source=dataset_path,
+        poison_count=poison_count,
+        experiment_id=experiment_id,
+        run_prefix=run_prefix,
+    )
+
+
+def _write_poison_dataset(
+    *,
+    source: Path,
+    poison_count: int,
+    experiment_id: str,
+    run_prefix: str | None,
+) -> Path:
+    output_dir = Path(".queuelab/generated/experiments")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output = output_dir / f"{run_prefix or experiment_id}-poison-{poison_count}.jsonl"
+
+    rows = [json.loads(line) for line in source.read_text(encoding="utf-8").splitlines() if line]
+    if poison_count > len(rows):
+        raise ValueError(
+            f"poison_count {poison_count} exceeds dataset row count {len(rows)}"
+        )
+    poison_start = len(rows) - poison_count
+    with output.open("w", encoding="utf-8") as output_file:
+        for index, row in enumerate(rows):
+            if index >= poison_start:
+                row["chaos"] = "poison"
+            output_file.write(json.dumps(row, sort_keys=True, separators=(",", ":")))
+            output_file.write("\n")
+    return output
 
 
 def _expand_options(options: dict[str, Any]) -> list[dict[str, Any]]:

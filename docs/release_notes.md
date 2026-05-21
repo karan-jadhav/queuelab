@@ -1,5 +1,12 @@
 # QueueLab Snapshot Notes
 
+## v0.2.1
+
+Patch release:
+
+- Experiment configs with `dataset.poison_count` now generate ignored derived poison datasets automatically.
+- Poison experiments no longer require manual JSONL editing.
+
 ## v0.2
 
 This snapshot adds the first experiment-runner and sweep layer on top of the v0.1 reliability lab.
