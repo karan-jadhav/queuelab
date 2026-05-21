@@ -6,6 +6,7 @@ Patch release:
 
 - Experiment configs with `dataset.poison_count` now generate ignored derived poison datasets automatically.
 - Poison experiments no longer require manual JSONL editing.
+- Added MIT license and reproducibility checklist.
 
 ## v0.2
 

@@ -32,6 +32,7 @@ Install dependencies with `uv`, then start local services:
 
 ```bash
 docker compose up -d postgres rabbitmq localstack
+docker compose exec -T postgres psql -U queuelab -d queuelab -f /docker-entrypoint-initdb.d/init.sql
 ```
 
 Create a 10K dataset:
@@ -140,11 +141,16 @@ Poison experiments do not require manually editing JSONL. If an experiment confi
 ## Docs
 
 - [Architecture](docs/architecture.md)
+- [Reproducibility](docs/reproducibility.md)
 - [Experiment Log](docs/experiment_log.md)
 - [Findings](docs/findings.md)
 - [Build Log](docs/build_log.md)
 - [Release Notes](docs/release_notes.md)
 - [Charts](docs/charts)
+
+## License
+
+MIT. See [LICENSE](LICENSE).
 
 ## Limitations
 
